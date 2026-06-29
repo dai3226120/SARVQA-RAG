@@ -1,0 +1,242 @@
+﻿2026-06-24 09:46:17,954 - INFO - MainThread - No device provided, using cuda:0
+2026-06-24 09:46:20,277 - INFO - MainThread - Loading SentenceTransformer model from sentence-transformers/all-MiniLM-L6-v2.
+2026-06-24 09:46:25,768 - INFO - MainThread - langchain-openai detected system proxy configuration and no explicit `http_socket_options` / `http_client` / `http_async_client` / `openai_proxy`; skipping the custom `httpx` transport so httpx's env-proxy auto-detection applies. Pass `http_socket_options=[...]` to opt back into kernel-level TCP keepalive tuning on top of the env proxy.
+2026-06-24 09:46:29,694 - INFO - MainThread - 日志数据去重完成，当前有效记录数：12993
+2026-06-24 09:46:29,761 - INFO - MainThread - [MD5校验通过] 向量数据库中的数据与当前日志文件版本完全一致。
+2026-06-24 09:46:29,784 - INFO - MainThread - 🚀 开始处理SAR-VQA数据（使用MainAgent）
+2026-06-24 09:46:29,811 - INFO - MainThread - 📊 CSV结构检查通过:
+2026-06-24 09:46:29,812 - INFO - MainThread - 列名: ['id', 'image', 'question', 'answer']
+2026-06-24 09:46:29,821 - INFO - MainThread - 前5行:
+                 id  ...                                             answer
+0  train_sar946.png  ...  Yes, there are patchy areas with slightly text...
+1      sar_2240.png  ...  The SAR image shows approximately 10-12 boats ...
+2       sar_516.png  ...  While no active water is visible, faint linear...
+3     sar_10542.png  ...  No prominent linear features like fences or pa...
+4     sar_18882.png  ...  Yes, small, bright scatterers near driveways a...
+
+[5 rows x 4 columns]
+2026-06-24 09:46:29,821 - INFO - MainThread - 🔧 初始化 MainAgent 实例...
+2026-06-24 09:46:29,846 - INFO - MainThread - 成功读取CSV: 共200行，列名: ['id', 'image', 'question', 'answer']
+2026-06-24 09:46:29,849 - WARNING - ThreadPoolExecutor-2_0 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_256_train sar946.png
+2026-06-24 09:46:29,850 - WARNING - ThreadPoolExecutor-2_0 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 2240.png
+2026-06-24 09:46:29,851 - WARNING - ThreadPoolExecutor-2_1 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 516.png
+2026-06-24 09:46:29,851 - WARNING - ThreadPoolExecutor-2_0 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 10542.png
+2026-06-24 09:46:29,851 - WARNING - ThreadPoolExecutor-2_1 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 18882.png
+2026-06-24 09:46:29,852 - WARNING - ThreadPoolExecutor-2_0 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image whu-sar-opt NH49E001013_2_3.tif
+2026-06-24 09:46:29,852 - WARNING - ThreadPoolExecutor-2_2 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 3518.png
+2026-06-24 09:46:29,852 - WARNING - ThreadPoolExecutor-2_1 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 6317.png
+2026-06-24 09:46:29,852 - WARNING - ThreadPoolExecutor-2_0 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 15128.png
+2026-06-24 09:46:29,853 - WARNING - ThreadPoolExecutor-2_2 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 19702.png
+2026-06-24 09:46:29,853 - WARNING - ThreadPoolExecutor-2_0 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1868_summer_s1_102_p102.png
+2026-06-24 09:46:29,854 - WARNING - ThreadPoolExecutor-2_1 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs2017_winter_s1_24_p648.png
+2026-06-24 09:46:29,854 - WARNING - ThreadPoolExecutor-2_3 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1158_spring_s1_23_p266.png
+2026-06-24 09:46:29,855 - WARNING - ThreadPoolExecutor-2_1 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 18175.png
+2026-06-24 09:46:29,855 - WARNING - ThreadPoolExecutor-2_2 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 5806.png
+2026-06-24 09:46:29,854 - WARNING - ThreadPoolExecutor-2_4 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image optical_sar 226746.png
+2026-06-24 09:46:29,855 - WARNING - ThreadPoolExecutor-2_3 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 4567.png
+2026-06-24 09:46:29,856 - WARNING - ThreadPoolExecutor-2_0 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 11692.png
+2026-06-24 09:46:29,856 - WARNING - ThreadPoolExecutor-2_2 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 13539.png
+2026-06-24 09:46:29,856 - WARNING - ThreadPoolExecutor-2_6 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image optical_sar 293728.png
+2026-06-24 09:46:29,857 - WARNING - ThreadPoolExecutor-2_5 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 7600.png
+2026-06-24 09:46:29,856 - WARNING - ThreadPoolExecutor-2_4 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image optical_sar 582554.png
+2026-06-24 09:46:29,857 - WARNING - ThreadPoolExecutor-2_0 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs2017_winter_s1_94_p32.png
+2026-06-24 09:46:29,857 - WARNING - ThreadPoolExecutor-2_2 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 12417.png
+2026-06-24 09:46:29,858 - WARNING - ThreadPoolExecutor-2_7 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 10277.png
+2026-06-24 09:46:29,858 - WARNING - ThreadPoolExecutor-2_8 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 10261.png
+2026-06-24 09:46:29,859 - WARNING - ThreadPoolExecutor-2_6 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_256_train sar4484.png
+2026-06-24 09:46:29,859 - WARNING - ThreadPoolExecutor-2_1 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1970_fall_s1_114_p388.png
+2026-06-24 09:46:29,860 - WARNING - ThreadPoolExecutor-2_3 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1868_summer_s1_134_p53.png
+2026-06-24 09:46:29,860 - WARNING - ThreadPoolExecutor-2_9 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 3104.png
+2026-06-24 09:46:29,860 - WARNING - ThreadPoolExecutor-2_5 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 19103.png
+2026-06-24 09:46:29,861 - WARNING - ThreadPoolExecutor-2_4 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 10022.png
+2026-06-24 09:46:29,861 - WARNING - ThreadPoolExecutor-2_10 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs2017_winter_s1_111_p655.png
+2026-06-24 09:46:29,861 - WARNING - ThreadPoolExecutor-2_11 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image MSAR-1.0 03534.jpg
+2026-06-24 09:46:29,861 - WARNING - ThreadPoolExecutor-2_0 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_256_train sar401.png
+2026-06-24 09:46:29,862 - WARNING - ThreadPoolExecutor-2_2 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image optical_sar 3985.png
+2026-06-24 09:46:29,862 - WARNING - ThreadPoolExecutor-2_7 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 17403.png
+2026-06-24 09:46:29,863 - WARNING - ThreadPoolExecutor-2_12 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 671.png
+2026-06-24 09:46:29,863 - WARNING - ThreadPoolExecutor-2_8 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image HRSID_JPG P0015_4800_5600_3000_3800.jpg
+2026-06-24 09:46:29,863 - WARNING - ThreadPoolExecutor-2_6 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1868_summer_s1_110_p352.png
+2026-06-24 09:46:29,864 - WARNING - ThreadPoolExecutor-2_13 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 5965.png
+2026-06-24 09:46:29,865 - WARNING - ThreadPoolExecutor-2_1 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image optical_sar 317736.png
+2026-06-24 09:46:29,865 - WARNING - ThreadPoolExecutor-2_3 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image MSAR-1.0 014465.jpg
+2026-06-24 09:46:29,865 - WARNING - ThreadPoolExecutor-2_5 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1868_summer_s1_47_p713.png
+2026-06-24 09:46:29,865 - WARNING - ThreadPoolExecutor-2_9 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1158_spring_s1_71_p75.png
+2026-06-24 09:46:29,866 - WARNING - ThreadPoolExecutor-2_14 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 16590.png
+2026-06-24 09:46:29,866 - WARNING - ThreadPoolExecutor-2_4 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1970_fall_s1_78_p4.png
+2026-06-24 09:46:29,866 - WARNING - ThreadPoolExecutor-2_10 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_256_val sar46.png
+2026-06-24 09:46:29,867 - WARNING - ThreadPoolExecutor-2_11 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1158_spring_s1_59_p210.png
+2026-06-24 09:46:29,867 - WARNING - ThreadPoolExecutor-2_15 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image whu-sar-opt NI49E022013_0_1.tif
+2026-06-24 09:46:29,867 - WARNING - ThreadPoolExecutor-2_0 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1970_fall_s1_65_p921.png
+2026-06-24 09:46:29,868 - WARNING - ThreadPoolExecutor-2_7 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 3959.png
+2026-06-24 09:46:29,868 - WARNING - ThreadPoolExecutor-2_2 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1970_fall_s1_140_p376.png
+2026-06-24 09:46:29,868 - WARNING - ThreadPoolExecutor-2_16 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1970_fall_s1_139_p1892.png
+2026-06-24 09:46:29,869 - WARNING - ThreadPoolExecutor-2_12 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1158_spring_s1_95_p1467.png
+2026-06-24 09:46:29,869 - WARNING - ThreadPoolExecutor-2_17 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 9341.png
+2026-06-24 09:46:29,869 - WARNING - ThreadPoolExecutor-2_8 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image MSAR-1.0 015711.jpg
+2026-06-24 09:46:29,870 - WARNING - ThreadPoolExecutor-2_18 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 5257.png
+2026-06-24 09:46:29,870 - WARNING - ThreadPoolExecutor-2_6 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 16994.png
+2026-06-24 09:46:29,870 - WARNING - ThreadPoolExecutor-2_19 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 7083.png
+2026-06-24 09:46:29,871 - WARNING - ThreadPoolExecutor-2_13 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs2017_winter_s1_67_p571.png
+2026-06-24 09:46:29,871 - WARNING - ThreadPoolExecutor-2_1 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1970_fall_s1_3_p122.png
+2026-06-24 09:46:29,872 - WARNING - ThreadPoolExecutor-2_5 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs2017_winter_s1_6_p572.png
+2026-06-24 09:46:29,872 - WARNING - ThreadPoolExecutor-2_20 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_256_train sar4016.png
+2026-06-24 09:46:29,872 - WARNING - ThreadPoolExecutor-2_3 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs2017_winter_s1_67_p684.png
+2026-06-24 09:46:29,873 - WARNING - ThreadPoolExecutor-2_4 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1158_spring_s1_127_p876.png
+2026-06-24 09:46:29,874 - WARNING - ThreadPoolExecutor-2_9 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 4094.png
+2026-06-24 09:46:29,874 - WARNING - ThreadPoolExecutor-2_14 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image MSAR-1.0 011331.jpg
+2026-06-24 09:46:29,874 - WARNING - ThreadPoolExecutor-2_10 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image optical_sar 166981.png
+2026-06-24 09:46:29,874 - WARNING - ThreadPoolExecutor-2_21 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image optical_sar 438763.png
+2026-06-24 09:46:29,875 - WARNING - ThreadPoolExecutor-2_15 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 1228.png
+2026-06-24 09:46:29,875 - WARNING - ThreadPoolExecutor-2_22 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image optical_sar 435199.png
+2026-06-24 09:46:29,874 - WARNING - ThreadPoolExecutor-2_11 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_256_train sar7161.png
+2026-06-24 09:46:29,875 - WARNING - ThreadPoolExecutor-2_23 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 16066.png
+2026-06-24 09:46:29,875 - WARNING - ThreadPoolExecutor-2_0 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 1464.png
+2026-06-24 09:46:29,877 - WARNING - ThreadPoolExecutor-2_2 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 13288.png
+2026-06-24 09:46:29,876 - WARNING - ThreadPoolExecutor-2_24 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1158_spring_s1_100_p50.png
+2026-06-24 09:46:29,876 - WARNING - ThreadPoolExecutor-2_7 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1868_summer_s1_32_p608.png
+2026-06-24 09:46:29,877 - WARNING - ThreadPoolExecutor-2_16 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image whu-sar-opt NI49E024019_3_2.tif
+2026-06-24 09:46:29,877 - WARNING - ThreadPoolExecutor-2_12 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1158_spring_s1_41_p396.png
+2026-06-24 09:46:29,879 - WARNING - ThreadPoolExecutor-2_26 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_256_train sar2399.png
+2026-06-24 09:46:29,878 - WARNING - ThreadPoolExecutor-2_25 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 9606.png
+2026-06-24 09:46:29,879 - WARNING - ThreadPoolExecutor-2_8 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs2017_winter_s1_34_p890.png
+2026-06-24 09:46:29,879 - WARNING - ThreadPoolExecutor-2_17 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SSDD 000168.jpg
+2026-06-24 09:46:29,879 - WARNING - ThreadPoolExecutor-2_18 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs2017_winter_s1_77_p115.png
+2026-06-24 09:46:29,880 - WARNING - ThreadPoolExecutor-2_6 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 7211.png
+2026-06-24 09:46:29,880 - WARNING - ThreadPoolExecutor-2_27 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs2017_winter_s1_24_p420.png
+2026-06-24 09:46:29,880 - WARNING - ThreadPoolExecutor-2_19 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1970_fall_s1_31_p861.png
+2026-06-24 09:46:29,881 - WARNING - ThreadPoolExecutor-2_13 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1970_fall_s1_80_p712.png
+2026-06-24 09:46:29,881 - WARNING - ThreadPoolExecutor-2_1 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 15252.png
+2026-06-24 09:46:29,881 - WARNING - ThreadPoolExecutor-2_28 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 4574.png
+2026-06-24 09:46:29,882 - WARNING - ThreadPoolExecutor-2_20 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1158_spring_s1_3_p83.png
+2026-06-24 09:46:29,882 - WARNING - ThreadPoolExecutor-2_29 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_512_train sar1060.png
+2026-06-24 09:46:29,883 - WARNING - ThreadPoolExecutor-2_30 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 8084.png
+2026-06-24 09:46:29,882 - WARNING - ThreadPoolExecutor-2_5 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 790.png
+2026-06-24 09:46:29,884 - WARNING - ThreadPoolExecutor-2_3 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 3281.png
+2026-06-24 09:46:29,884 - WARNING - ThreadPoolExecutor-2_31 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image MSAR-1.0 011732.jpg
+2026-06-24 09:46:29,884 - WARNING - ThreadPoolExecutor-2_9 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 3175.png
+2026-06-24 09:46:29,884 - WARNING - ThreadPoolExecutor-2_4 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1970_fall_s1_139_p1886.png
+2026-06-24 09:46:29,885 - WARNING - ThreadPoolExecutor-2_10 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs2017_winter_s1_16_p808.png
+2026-06-24 09:46:29,885 - WARNING - ThreadPoolExecutor-2_14 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs2017_winter_s1_111_p753.png
+2026-06-24 09:46:29,885 - WARNING - ThreadPoolExecutor-2_32 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_256_val sar548.png
+2026-06-24 09:46:29,886 - WARNING - ThreadPoolExecutor-2_21 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 14880.png
+2026-06-24 09:46:29,886 - WARNING - ThreadPoolExecutor-2_33 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1158_spring_s1_126_p762.png
+2026-06-24 09:46:29,886 - WARNING - ThreadPoolExecutor-2_15 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1158_spring_s1_112_p585.png
+2026-06-24 09:46:29,887 - WARNING - ThreadPoolExecutor-2_34 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 17924.png
+2026-06-24 09:46:29,888 - WARNING - ThreadPoolExecutor-2_23 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image optical_sar 150445.png
+2026-06-24 09:46:29,888 - WARNING - ThreadPoolExecutor-2_11 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1970_fall_s1_29_p357.png
+2026-06-24 09:46:29,888 - WARNING - ThreadPoolExecutor-2_22 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1970_fall_s1_140_p259.png
+2026-06-24 09:46:29,888 - WARNING - ThreadPoolExecutor-2_35 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_256_train sar6858.png
+2026-06-24 09:46:29,889 - WARNING - ThreadPoolExecutor-2_2 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image optical_sar 115581.png
+2026-06-24 09:46:29,889 - WARNING - ThreadPoolExecutor-2_36 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image MSAR-1.0 024649.jpg
+2026-06-24 09:46:29,888 - WARNING - ThreadPoolExecutor-2_0 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1868_summer_s1_10_p249.png
+2026-06-24 09:46:29,889 - WARNING - ThreadPoolExecutor-2_24 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image optical_sar 578110.png
+2026-06-24 09:46:29,890 - WARNING - ThreadPoolExecutor-2_7 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_256_train sar6582.png
+2026-06-24 09:46:29,890 - WARNING - ThreadPoolExecutor-2_16 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image MSAR-1.0 014063.jpg
+2026-06-24 09:46:29,890 - WARNING - ThreadPoolExecutor-2_37 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 17845.png
+2026-06-24 09:46:29,891 - WARNING - ThreadPoolExecutor-2_38 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image optical_sar 746119.png
+2026-06-24 09:46:29,891 - WARNING - ThreadPoolExecutor-2_12 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 10689.png
+2026-06-24 09:46:29,892 - WARNING - ThreadPoolExecutor-2_39 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 5195.png
+2026-06-24 09:46:29,892 - WARNING - ThreadPoolExecutor-2_26 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1970_fall_s1_27_p67.png
+2026-06-24 09:46:29,893 - WARNING - ThreadPoolExecutor-2_8 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image optical_sar 769266.png
+2026-06-24 09:46:29,893 - WARNING - ThreadPoolExecutor-2_25 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image optical_sar 588726.png
+2026-06-24 09:46:29,893 - WARNING - ThreadPoolExecutor-2_40 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1970_fall_s1_16_p437.png
+2026-06-24 09:46:29,894 - WARNING - ThreadPoolExecutor-2_17 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 5144.png
+2026-06-24 09:46:29,894 - WARNING - ThreadPoolExecutor-2_41 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_256_train sar3077.png
+2026-06-24 09:46:29,894 - WARNING - ThreadPoolExecutor-2_18 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1970_fall_s1_71_p810.png
+2026-06-24 09:46:29,895 - WARNING - ThreadPoolExecutor-2_42 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1158_spring_s1_14_p978.png
+2026-06-24 09:46:29,895 - WARNING - ThreadPoolExecutor-2_6 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 14191.png
+2026-06-24 09:46:29,895 - WARNING - ThreadPoolExecutor-2_27 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 8580.png
+2026-06-24 09:46:29,896 - WARNING - ThreadPoolExecutor-2_13 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 11849.png
+2026-06-24 09:46:29,896 - WARNING - ThreadPoolExecutor-2_43 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1158_spring_s1_114_p48.png
+2026-06-24 09:46:29,896 - WARNING - ThreadPoolExecutor-2_19 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image optical_sar 309581.png
+2026-06-24 09:46:29,897 - WARNING - ThreadPoolExecutor-2_1 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs2017_winter_s1_33_p1017.png
+2026-06-24 09:46:29,898 - WARNING - ThreadPoolExecutor-2_20 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_256_train sar6694.png
+2026-06-24 09:46:29,898 - WARNING - ThreadPoolExecutor-2_29 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs2017_winter_s1_30_p593.png
+2026-06-24 09:46:29,897 - WARNING - ThreadPoolExecutor-2_44 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1868_summer_s1_51_p328.png
+2026-06-24 09:46:29,897 - WARNING - ThreadPoolExecutor-2_28 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image optical_sar 163925.png
+2026-06-24 09:46:29,898 - WARNING - ThreadPoolExecutor-2_30 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_256_train sar6529.png
+2026-06-24 09:46:29,899 - WARNING - ThreadPoolExecutor-2_45 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 19810.png
+2026-06-24 09:46:29,899 - WARNING - ThreadPoolExecutor-2_5 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 7971.png
+2026-06-24 09:46:29,899 - WARNING - ThreadPoolExecutor-2_3 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_512_train sar661.png
+2026-06-24 09:46:29,900 - WARNING - ThreadPoolExecutor-2_46 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_512_val sar69.png
+2026-06-24 09:46:29,900 - WARNING - ThreadPoolExecutor-2_31 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 18956.png
+2026-06-24 09:46:29,901 - WARNING - ThreadPoolExecutor-2_47 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 5533.png
+2026-06-24 09:46:29,901 - WARNING - ThreadPoolExecutor-2_9 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_256_train sar3704.png
+2026-06-24 09:46:29,901 - WARNING - ThreadPoolExecutor-2_4 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1970_fall_s1_119_p504.png
+2026-06-24 09:46:29,902 - WARNING - ThreadPoolExecutor-2_48 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image optical_sar 48457.png
+2026-06-24 09:46:29,902 - WARNING - ThreadPoolExecutor-2_14 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image MSAR-1.0 023992.jpg
+2026-06-24 09:46:29,902 - WARNING - ThreadPoolExecutor-2_32 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs2017_winter_s1_12_p74.png
+2026-06-24 09:46:29,902 - WARNING - ThreadPoolExecutor-2_10 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 5494.png
+2026-06-24 09:46:29,903 - WARNING - ThreadPoolExecutor-2_49 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1868_summer_s1_135_p898.png
+2026-06-24 09:46:29,904 - WARNING - ThreadPoolExecutor-2_21 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_256_train sar367.png
+2026-06-24 09:46:29,904 - WARNING - ThreadPoolExecutor-2_33 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_512_train sar1100.png
+2026-06-24 09:46:29,905 - WARNING - ThreadPoolExecutor-2_34 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image optical_sar 216344.png
+2026-06-24 09:46:29,905 - WARNING - ThreadPoolExecutor-2_15 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 2943.png
+2026-06-24 09:46:29,906 - WARNING - ThreadPoolExecutor-2_23 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 8452.png
+2026-06-24 09:46:29,907 - WARNING - ThreadPoolExecutor-2_22 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1158_spring_s1_17_p751.png
+2026-06-24 09:46:29,907 - WARNING - ThreadPoolExecutor-2_11 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_256_train sar2909.png
+2026-06-24 09:46:29,908 - WARNING - ThreadPoolExecutor-2_35 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image optical_sar 339327.png
+2026-06-24 09:46:29,908 - WARNING - ThreadPoolExecutor-2_2 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1868_summer_s1_95_p1337.png
+2026-06-24 09:46:29,909 - WARNING - ThreadPoolExecutor-2_36 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 4863.png
+2026-06-24 09:46:29,909 - INFO - MainThread - 已处理 100/200 行 | 速率: 1598.07 行/秒
+2026-06-24 09:46:29,909 - WARNING - ThreadPoolExecutor-2_0 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1158_spring_s1_38_p637.png
+2026-06-24 09:46:29,910 - WARNING - ThreadPoolExecutor-2_24 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1158_spring_s1_35_p38.png
+2026-06-24 09:46:29,910 - WARNING - ThreadPoolExecutor-2_7 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image optical_sar 676428.png
+2026-06-24 09:46:29,910 - WARNING - ThreadPoolExecutor-2_16 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image optical_sar 749688.png
+2026-06-24 09:46:29,910 - WARNING - ThreadPoolExecutor-2_37 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 3517.png
+2026-06-24 09:46:29,910 - WARNING - ThreadPoolExecutor-2_38 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 7645.png
+2026-06-24 09:46:29,911 - WARNING - ThreadPoolExecutor-2_12 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image optical_sar 755976.png
+2026-06-24 09:46:29,911 - WARNING - ThreadPoolExecutor-2_39 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image HRSID_JPG P0105_2400_3200_15600_16400.jpg
+2026-06-24 09:46:29,911 - WARNING - ThreadPoolExecutor-2_26 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image optical_sar 797246.png
+2026-06-24 09:46:29,911 - WARNING - ThreadPoolExecutor-2_8 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 18393.png
+2026-06-24 09:46:29,911 - WARNING - ThreadPoolExecutor-2_25 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 883.png
+2026-06-24 09:46:29,911 - WARNING - ThreadPoolExecutor-2_40 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image optical_sar 253453.png
+2026-06-24 09:46:29,912 - WARNING - ThreadPoolExecutor-2_17 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 2164.png
+2026-06-24 09:46:29,912 - WARNING - ThreadPoolExecutor-2_41 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_256_val sar11.png
+2026-06-24 09:46:29,912 - WARNING - ThreadPoolExecutor-2_18 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1970_fall_s1_32_p989.png
+2026-06-24 09:46:29,912 - WARNING - ThreadPoolExecutor-2_42 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_256_val sar733.png
+2026-06-24 09:46:29,913 - WARNING - ThreadPoolExecutor-2_6 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs2017_winter_s1_45_p303.png
+2026-06-24 09:46:29,913 - WARNING - ThreadPoolExecutor-2_43 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1970_fall_s1_27_p228.png
+2026-06-24 09:46:29,913 - WARNING - ThreadPoolExecutor-2_13 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs2017_winter_s1_46_p19.png
+2026-06-24 09:46:29,913 - WARNING - ThreadPoolExecutor-2_27 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 16109.png
+2026-06-24 09:46:29,914 - WARNING - ThreadPoolExecutor-2_19 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1970_fall_s1_111_p82.png
+2026-06-24 09:46:29,914 - WARNING - ThreadPoolExecutor-2_1 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image MSAR-1.0 013497.jpg
+2026-06-24 09:46:29,914 - WARNING - ThreadPoolExecutor-2_20 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_256_val sar239.png
+2026-06-24 09:46:29,914 - WARNING - ThreadPoolExecutor-2_29 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_256_train sar7223.png
+2026-06-24 09:46:29,915 - WARNING - ThreadPoolExecutor-2_44 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1158_spring_s1_26_p1076.png
+2026-06-24 09:46:29,915 - WARNING - ThreadPoolExecutor-2_28 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_256_train sar652.png
+2026-06-24 09:46:29,915 - WARNING - ThreadPoolExecutor-2_30 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1970_fall_s1_31_p822.png
+2026-06-24 09:46:29,915 - WARNING - ThreadPoolExecutor-2_45 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 5832.png
+2026-06-24 09:46:29,915 - WARNING - ThreadPoolExecutor-2_5 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 19508.png
+2026-06-24 09:46:29,916 - WARNING - ThreadPoolExecutor-2_3 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 15620.png
+2026-06-24 09:46:29,916 - WARNING - ThreadPoolExecutor-2_46 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_256_train sar7661.png
+2026-06-24 09:46:29,916 - WARNING - ThreadPoolExecutor-2_31 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image optical_sar 791000.png
+2026-06-24 09:46:29,916 - WARNING - ThreadPoolExecutor-2_47 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image MSAR-1.0 014871.jpg
+2026-06-24 09:46:29,916 - WARNING - ThreadPoolExecutor-2_9 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_256_train sar6095.png
+2026-06-24 09:46:29,917 - WARNING - ThreadPoolExecutor-2_4 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 1709.png
+2026-06-24 09:46:29,917 - WARNING - ThreadPoolExecutor-2_48 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image SEN12 ROIs1158_spring_s1_78_p591.png
+2026-06-24 09:46:29,917 - WARNING - ThreadPoolExecutor-2_14 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image OSdataset_256_train sar4920.png
+2026-06-24 09:46:29,917 - WARNING - ThreadPoolExecutor-2_32 - 图像文件不存在: C:\dataset/SAR-TEXT\ SAR-TEXT-data Image QXSLAB_SAROPT 17624.png
+2026-06-24 09:46:29,929 - INFO - MainThread - 已处理 200/200 行 | 速率: 2415.21 行/秒
+2026-06-24 09:46:29,947 - INFO - MainThread - 
+==================================================
+2026-06-24 09:46:29,947 - INFO - MainThread - 🎉 处理完成！
+2026-06-24 09:46:29,947 - INFO - MainThread - 总时长: 0.1 秒
+2026-06-24 09:46:29,947 - INFO - MainThread - 平均每条（输入）: 0.001 秒/条
+2026-06-24 09:46:29,947 - INFO - MainThread - 平均每条（输出）: 0.001 秒/条
+2026-06-24 09:46:29,947 - INFO - MainThread - 生成文件: ./benchmark/result/agent-text-doubao-seed-2-0-mini\agent-text-doubao-seed-2-0-mini_val_predicted_question_20260624_094629.csv
+2026-06-24 09:46:29,947 - INFO - MainThread - 最新文件: ./benchmark/result/agent-text-doubao-seed-2-0-mini\agent-text-doubao-seed-2-0-mini_val_predicted_question_latest.csv
+2026-06-24 09:46:29,948 - INFO - MainThread - 
+📋 指标汇总:
+2026-06-24 09:46:29,948 - INFO - MainThread - 📊 整体统计: 无数据
+2026-06-24 09:46:29,948 - INFO - MainThread - 🎯 隶属度命中率: N/A
+2026-06-24 09:46:29,948 - INFO - MainThread - 📈 信息增益度 IG: N/A
+2026-06-24 09:46:29,948 - INFO - MainThread - 📦 信息密度 ID: N/A
+2026-06-24 09:46:29,948 - INFO - MainThread - 
+⏱ 检索延迟统计（普通）:
+2026-06-24 09:46:29,948 - INFO - MainThread -   无数据
+2026-06-24 09:46:29,948 - INFO - MainThread - ⏱ 检索延迟统计（切片）:
+2026-06-24 09:46:29,948 - INFO - MainThread -   无数据
+2026-06-24 09:46:29,948 - INFO - MainThread - ==================================================
+2026-06-24 09:46:29,949 - INFO - MainThread - 🏁 全部处理完成！
