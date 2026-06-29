@@ -1,0 +1,5 @@
+agent/chroma_db/
+logs/
+chroma_db/
+agent/.env
+.env

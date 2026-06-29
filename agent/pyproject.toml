@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sarvqa_rag-trae"
+version = "0.1.0"
+description = "SAR-VQA-RAG local package for editable installation"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.setuptools.packages.find]
+include = ["model*", "utils*", "agent*", "rag*"]

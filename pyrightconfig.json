@@ -1,0 +1,3 @@
+{
+    "extraPaths": ["${workspaceFolder}/agent"]
+}

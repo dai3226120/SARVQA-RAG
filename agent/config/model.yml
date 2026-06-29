@@ -1,0 +1,6 @@
+chat_model_name: qwen3-max
+embedding_model_name: text-embedding-v4
+huggingface_embedding_model_name: all-MiniLM-L6-v2
+doubao-seed-2-0-mini_model_name: doubao-seed-2-0-mini-260428
+internvl2-8b_model_name: OpenGVLab/InternVL2-8B
+internvl3-5-8b_model_name: OpenGVLab/InternVL3_5-8B
