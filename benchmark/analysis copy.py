@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 # FILE_TAG = "internvl2-8b"
 # FILE_TAG = "internvl3_5-8b"
 
-# FILE_TAG = "agent-text-doubao-seed-2-0-mini"
-FILE_TAG = "agent-text-doubao-seed-2-0-mini_rscsv"
+FILE_TAG = "agent-text-doubao-seed-2-0-mini"
+# FILE_TAG = "agent-text-doubao-seed-2-0-mini_rscsv"
 # FILE_TAG = "agent-text-internVL2-8b"
 # FILE_TAG = "agent-text-internVL3_5-8b"
 
