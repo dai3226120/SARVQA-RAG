@@ -1,0 +1,48 @@
+# ====================== 评测通用变量配置 ======================
+
+# ---- 数据处理参数 ----
+data:
+  max_process_rows: 10
+  start_row: 0
+  max_workers: 50
+  batch_save_threshold: 100
+  required_columns:
+    - id
+    - image
+    - question
+    - answer
+  csv_read_encoding: "utf_8_sig"
+  csv_write_encoding: "utf_8_sig"
+
+# ---- 文件路径 ----
+paths:
+  dataset_split_dir: "./dataset_split"
+  result_dir: "./benchmark/result"
+  benchmark_result_dir: "./benchmark/result/benchmark_result"
+  image_base_path: "C:\\dataset/SAR-TEXT"
+
+# ---- 分析参数 ----
+analysis:
+  confidence_threshold: 0.85
+  target_metrics:
+    - cosine
+    - ROUGEL
+    - BLEU1
+    - BLEU2
+    - BLEU3
+    - BLEU4
+    - METEOR
+
+# ---- 模型类型枚举 ----
+model_types:
+  doubao: "doubao"
+  internvl: "internvl"
+  agent_doubao: "agent-doubao"
+  agent_internvl: "agent-internvl"
+
+# ---- 模型标签映射 ----
+file_tags:
+  doubao: "doubao-seed-2-0-mini-260428"
+  internvl: "internvl3_5-8b"
+  agent-doubao: "agent-text-doubao-seed-2-0-mini"
+  agent-internvl: "agent-text-internVL3_5-8b"
