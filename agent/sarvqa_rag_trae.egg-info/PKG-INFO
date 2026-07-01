@@ -1,0 +1,5 @@
+Metadata-Version: 2.4
+Name: sarvqa_rag-trae
+Version: 0.1.0
+Summary: SAR-VQA-RAG local package for editable installation
+Requires-Python: >=3.10

@@ -10,9 +10,9 @@ from dataclasses import dataclass
 # ====================== 数据处理配置 ======================
 @dataclass
 class DataConfig:
-    MAX_PROCESS_ROWS: int = 50
+    MAX_PROCESS_ROWS: int = 200000
     START_ROW: int = 0
-    MAX_WORKERS: int = 20
+    MAX_WORKERS: int = 30
     BATCH_SAVE_THRESHOLD: int = 100
     REQUIRED_COLUMNS: list = None
     CSV_READ_ENCODING: str = 'utf_8_sig'

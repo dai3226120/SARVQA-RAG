@@ -7,7 +7,8 @@ import sys
 
 # 设置控制台编码为UTF-8，支持emoji显示
 try:
-    sys.stdout.reconfigure(encoding='utf-8')
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 except AttributeError:
     pass
 
@@ -65,8 +66,8 @@ def main():
 
     # 配置参数
     file_tag = get_file_tag(ModelType.AGENT_DOUBAO)+"_rscsv"
-    dataset_tag = "test"
-    # dataset_tag = "val"
+    # dataset_tag = "test"
+    dataset_tag = "val"
     csv_input_path = get_csv_input_path(dataset_tag)
     result_dir = get_result_dir(file_tag)
     base_filename = get_base_filename(file_tag, dataset_tag)

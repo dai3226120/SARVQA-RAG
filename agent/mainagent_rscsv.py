@@ -119,12 +119,16 @@ if __name__=="__main__":
     # image_path = "C:\\dataset\\SAR-TEXT\\SAR-TEXT-data\\Image\\SEN12\\ROIs1158_spring_s1_10_p124.png"
     # image_path = "C:\\dataset\\SAR-TEXT\\SAR-TEXT-data\\Image\\QXSLAB_SAROPT\\7756.png"
     # image_path = "C:\\dataset\\SAR-TEXT\\SAR-TEXT-data\\Image\\whu-sar-opt\\NH49E010014_2_3.tif"
-    image_path = "C:\\dataset\\SAR-TEXT\\SAR-TEXT-data\\Image\\whu-sar-opt\\NH49E010014_2_3.tif"
+    # image_path = "C:\\dataset\\SAR-TEXT\\SAR-TEXT-data\\Image\\whu-sar-opt\\NH49E010014_2_3.tif"
+    image_path = "C:\\dataset\\SAR-TEXT\\SAR-TEXT-data\\Image\\OSdataset_256_train\\sar2839.png"
     # image_path = ""
+
+
     # query = "What is the scale of human development relative to the natural landscape?"
     # query = "Is there evidence of water bodies, like ponds or streams, in this landscape?"
     # query = "How does the SAR image depict the transition between forested and non-forested areas?"
-    query = "How does the urban area appear in this SAR image, and what distinguishes it from the surrounding landscape?"
+    # query = "How does the urban area appear in this SAR image, and what distinguishes it from the surrounding landscape?"
+    query = "Could the parking lot be part of a recreational area, like a park or trailhead?"
     image_file = None
     
     try:

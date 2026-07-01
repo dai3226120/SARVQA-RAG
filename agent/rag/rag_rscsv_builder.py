@@ -29,6 +29,7 @@ class RscsvBuilder:
             collection_name=chroma_conf["collections"]["slices"],
             embedding_function=self.embeddings,
             persist_directory=self.persist_directory,
+            collection_metadata={"hnsw:space": "cosine"}
         )
 
         

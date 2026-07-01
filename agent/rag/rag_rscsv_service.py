@@ -29,7 +29,7 @@ class RscsvService:
         self.slice_k = int(chroma_conf.get("slice_k", 10))
         self.membership_k = int(chroma_conf.get("membership_k", 5))
 
-    def hybrid_retrieve(self, query: str, k: int = 10, membership_k: int = 10, top_p: int =3 , fit_threshold: float = 0.5) -> str:
+    def hybrid_retrieve(self, query: str, slice_k: int = 10, membership_k: int = 10, top_p: int =3 , fit_threshold: float = 0.5) -> str:
         # ==========================================
         # 阶段 0: RAG 向量检索
         # ==========================================
@@ -109,7 +109,7 @@ class RscsvService:
         # ==========================================
         # 阶段 2: 隶属度不符合阈值，降级回退到基础切片检索
         # ==========================================
-        slice_results = self.slice_collection.similarity_search_with_relevance_scores(query, k=k)
+        slice_results = self.slice_collection.similarity_search_with_relevance_scores(query, k=slice_k)
         if slice_results:
             # 按相似度得分降序排序
             sorted_results = sorted(slice_results, key=lambda x: x[1], reverse=True)
@@ -121,7 +121,7 @@ class RscsvService:
             content = "\n---\n".join(
                 [f"相似度得分: {score:.4f}\n{doc.page_content}" for doc, score in top_results]
             )
-            rscsv_result = f"【匹配基础切片】(共检索{k}条，按相似度排序后保留{len(top_results)}条)  \n{content}"
+            rscsv_result = f"【匹配基础切片】(共检索{slice_k}条，按相似度排序后保留{len(top_results)}条)  \n{content}"
             if rag_context:
                 return f"【RAG检索参考】\n{rag_context}\n\n==============================\n\n{rscsv_result}"
             return rscsv_result
@@ -132,7 +132,7 @@ class RscsvService:
 
     def retrieve(self, query: str) -> str:
         # 确保配置中的 k 为整数
-        return self.hybrid_retrieve(query, k=self.slice_k, membership_k=self.membership_k, top_p=self.top_p, fit_threshold=self.fit_threshold)
+        return self.hybrid_retrieve(query, slice_k=self.slice_k, membership_k=self.membership_k, top_p=self.top_p)
     
     def get_membership_hit_rate(self) -> float:
         """获取隶属度命中率"""

@@ -10,12 +10,14 @@ class RscsvServiceRscsv:
         # 1. 基础构建器与切片集合
         self.builder = RscsvBuilder()
         self.slice_collection = self.builder.slice_collection
+        self.slice_k = int(chroma_conf.get("slice_k", 10))
+        self.membership_k = int(chroma_conf.get("membership_k", 5))
 
-    def hybrid_retrieve(self, query: str, k: int = 1) -> str:
+    def hybrid_retrieve(self, query: str, slice_k: int = 10, membership_k: int = 10, top_p: int =3 , fit_threshold: float = 0.5) -> str:
         # ==========================================
         # 阶段 2: 隶属度不符合阈值，降级回退到基础切片检索
         # ==========================================
-        slice_results = self.slice_collection.similarity_search(query, k=k)
+        slice_results = self.slice_collection.similarity_search(query, k=slice_k)
         if slice_results:
             # 拼接基础检索返回的多条内容
             content = "\n---\n".join([doc.page_content for doc in slice_results])

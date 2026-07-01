@@ -47,12 +47,12 @@ playground and ground track field, building and rooftop, pond and swimming pool.
 # FILE_TAG = "internvl2-8b"  # 文件标识（可选：original、optimized等）
 # FILE_TAG = "internvl3_5-8b"  # 文件标识（可选：original、optimized等）
 
-FILE_TAG = "agent-text-doubao-seed-2-0-mini"  # 文件标识（可选：original、optimized等）
-# FILE_TAG = "agent-text-doubao-seed-2-0-mini_rscsv"  # 文件标识（可选：original、optimized等）
+# FILE_TAG = "agent-text-doubao-seed-2-0-mini"  # 文件标识（可选：original、optimized等）
+FILE_TAG = "agent-text-doubao-seed-2-0-mini_rscsv"  # 文件标识（可选：original、optimized等）
 # FILE_TAG = "agent-text-internVL2-8b"  # 文件标识（可选：original、optimized等）
 # FILE_TAG = "agent-text-internVL3_5-8b"  # 文件标识（可选：original、optimized等）
-DATASET_TAG = "test"
-# DATASET_TAG = "val"
+# DATASET_TAG = "test"
+DATASET_TAG = "val"
 INPUT_CSV_PATH = f'./benchmark/result/{FILE_TAG}/{FILE_TAG}_{DATASET_TAG}_predicted_question_latest.csv'
 # INPUT_CSV_PATH = f'./benchmark/result/{FILE_TAG}/doubao-seed-2-0-mini-260428_val_predicted_question_20260624_223032.csv'
 RESULT_DIR = "./benchmark/result/benchmark_result/"

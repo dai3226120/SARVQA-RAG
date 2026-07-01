@@ -137,10 +137,16 @@ def main():
     """主函数"""
     print("[START] 开始并行处理SAR-VQA结果评估...")
 
-    # 配置参数
-    # FILE_TAG = "agent-text-internVL2-8b"
-    FILE_TAG = "agent-text-doubao-seed-2-0-mini"
-    # FILE_TAG = "doubao-seed-2-0-mini-260428"
+    # ====================== 文件路径配置 ======================
+    # FILE_TAG = "doubao-seed-2-0-mini-260428"  # 文件标识（可选：original、optimized等）
+    # FILE_TAG = "internvl2-8b"  # 文件标识（可选：original、optimized等）
+    # FILE_TAG = "internvl3_5-8b"  # 文件标识（可选：original、optimized等）
+
+    FILE_TAG = "agent-text-doubao-seed-2-0-mini"  # 文件标识（可选：original、optimized等）
+    # FILE_TAG = "agent-text-doubao-seed-2-0-mini_rscsv"  # 文件标识（可选：original、optimized等）
+    # FILE_TAG = "agent-text-internVL2-8b"  # 文件标识（可选：original、optimized等）
+    # FILE_TAG = "agent-text-internVL3_5-8b"  # 文件标识（可选：original、optimized等）
+    
     # DATASET_TAG = "test"
     DATASET_TAG = "val"
     INPUT_CSV_PATH = f'./benchmark/result/{FILE_TAG}/{FILE_TAG}_{DATASET_TAG}_predicted_question_latest.csv'
@@ -173,7 +179,7 @@ def main():
             df = df.head(MAX_ROWS)
             print(f"⚠️ 限制处理行数为 {MAX_ROWS}")
 
-        all_data = [(idx + 2, row) for idx, row in df.iterrows()]
+        all_data = [(idx + 2, row) for idx, row in enumerate(df.iterrows())]
 
     except Exception as e:
         print(f"❌ 读取CSV失败: {e}")
