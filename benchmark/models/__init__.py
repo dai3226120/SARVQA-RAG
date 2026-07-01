@@ -5,14 +5,17 @@ models 模块
 
 from .doubao_seed import DoubaoAPIClient
 from .internvl import InternVLAPIClient
-from .agent_doubao_seed import AgentDoubaoAPIClient
-from .agent_internvl import AgentInternVLAPIClient
+from .main_agent import MainAgentClient
 
-# 全局实例（保持兼容原 api_client.py 接口）
+# 非 Agent 全局实例
 doubao_client = DoubaoAPIClient()
 internvl_client = InternVLAPIClient()
-agent_doubao_client = AgentDoubaoAPIClient()
-agent_internvl_client = AgentInternVLAPIClient()
+
+# Agent 全局实例
+doubao_agent_client = MainAgentClient("mainagent")
+internvl_agent_client = MainAgentClient("mainagent_internVL")
+doubao_agent_rscsv_client = MainAgentClient("mainagent_rscsv")
+internvl_agent_rscsv_client = MainAgentClient("mainagent_internVL_rscsv")
 
 
 # ==================== 便捷函数 ====================
@@ -27,11 +30,11 @@ def call_internvl_api(image_path, question, prompt_template=None):
     return internvl_client.call(image_path, question, prompt_template)
 
 
-def call_agent_doubao_api(image_path, question, prompt_template=None):
-    """便捷函数：调用 Agent 豆包 API"""
-    return agent_doubao_client.call(image_path, question, prompt_template)
+def call_doubao_agent(image_path, question, prompt_template=None):
+    """便捷函数：调用豆包 Agent"""
+    return doubao_agent_client.call(image_path, question, prompt_template)
 
 
-def call_agent_internvl_api(image_path, question, prompt_template=None):
-    """便捷函数：调用 Agent InternVL API"""
-    return agent_internvl_client.call(image_path, question, prompt_template)
+def call_internvl_agent(image_path, question, prompt_template=None):
+    """便捷函数：调用 InternVL Agent"""
+    return internvl_agent_client.call(image_path, question, prompt_template)

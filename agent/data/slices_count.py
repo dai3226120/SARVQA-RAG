@@ -1,7 +1,11 @@
 import pandas as pd
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.path_tool import get_abs_path
 
 # 1. 读取 CSV 文件
-df = pd.read_csv('./agent/data/sar_slices.csv')
+df = pd.read_csv(get_abs_path('agent/data/sar_slices.csv'))
 
 # 2. 定义正则表达式 (加上 \b 单词边界，确保严格匹配 1-3 位数字)
 pattern = r'\bcluster_\d{1,3}_slice_\d{1,3}\b'

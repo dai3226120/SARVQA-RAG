@@ -1,44 +1,35 @@
 """
 模型基类
-提取 Doubao 和 InternVL API 客户端的公共逻辑
+封装 ChatOpenAI 模型实例，提供统一的多模态调用、统计和日志接口
 """
 
 import os
 import base64
 import time
-import requests
-from abc import ABC, abstractmethod
+
+from langchain_core.messages import HumanMessage
 
 from config import prompt_config
 from utils.print_utils import safe_print
 
 
-class BaseAPIClient(ABC):
-    """API 客户端基类，使用模板方法模式"""
+class BaseAPIClient:
+    """API 客户端基类，通过工厂模型实例调用多模态接口"""
 
-    def __init__(self, config):
-        self.config = config
-        self.api_endpoint = self.config.API_ENDPOINT
-        self.model_name = self.config.MODEL_NAME
-        self.timeout = self.config.TIMEOUT
-        self.temperature = self.config.TEMPERATURE
+    def __init__(self, model_instance, model_label="model"):
+        """
+        参数:
+            model_instance: factory.py 生成的 ChatOpenAI 模型实例
+            model_label: 模型显示标签（用于统计打印）
+        """
+        self.model = model_instance
+        self.model_name = model_instance.model_name
+        self.model_label = model_label
         self.call_count = 0
         self.success_count = 0
         self.total_latency = 0.0
 
-    # ==================== 子类必须实现 ====================
-
-    @abstractmethod
-    def _build_request_payload(self, base64_image: str, formatted_prompt: str) -> dict:
-        """构建请求体"""
-        pass
-
-    @abstractmethod
-    def _build_headers(self) -> dict:
-        """构建请求头"""
-        pass
-
-    # ==================== 公共方法 ====================
+    # ==================== 静态工具方法 ====================
 
     @staticmethod
     def _encode_image(image_path: str) -> str:
@@ -52,16 +43,11 @@ class BaseAPIClient(ABC):
         template = prompt_template or prompt_config.DEFAULT_PROMPT
         return template.format(question=question)
 
-    @staticmethod
-    def _parse_response(result: dict) -> str:
-        """解析 API 响应"""
-        if 'choices' in result and len(result['choices']) > 0:
-            return result['choices'][0].get('message', {}).get('content', '')
-        return "No response content in API result"
+    # ==================== 核心调用 ====================
 
     def call(self, image_path: str, question: str, prompt_template: str = None) -> str:
         """
-        调用 API 获取预测答案
+        调用多模态模型获取预测答案
 
         参数:
             image_path: 图像文件路径
@@ -83,40 +69,29 @@ class BaseAPIClient(ABC):
             base64_image = self._encode_image(image_path)
             formatted_prompt = self._build_formatted_prompt(question, prompt_template)
 
-            data = self._build_request_payload(base64_image, formatted_prompt)
-            headers = self._build_headers()
+            message = HumanMessage(content=[
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}},
+                {"type": "text", "text": formatted_prompt},
+            ])
 
-            safe_print(f"[CALL] 调用 API [{self.call_count}] | 模型: {self.model_name} | 图像: {image_name}")
+            safe_print(f"[CALL] 调用模型 [{self.call_count}] | 模型: {self.model_name} | 图像: {image_name}")
 
-            response = requests.post(
-                self.api_endpoint,
-                json=data,
-                headers=headers,
-                timeout=self.timeout
-            )
+            response = self.model.invoke([message])
 
             call_latency = time.time() - call_start_time
             self.total_latency += call_latency
+            self.success_count += 1
 
-            if response.status_code == 200:
-                result = response.json()
-                self.success_count += 1
-                safe_print(f"[OK] API 调用成功 [{self.call_count}] | 耗时: {call_latency:.2f}秒")
-                return self._parse_response(result)
-            else:
-                safe_print(f"[ERROR] API 调用失败 [{self.call_count}] | 状态码: {response.status_code} | 耗时: {call_latency:.2f}秒")
-                return f"API Error: {response.status_code}"
+            safe_print(f"[OK] 调用成功 [{self.call_count}] | 耗时: {call_latency:.2f}秒")
+            return response.content
 
-        except requests.exceptions.RequestException as e:
-            call_latency = time.time() - call_start_time
-            self.total_latency += call_latency
-            safe_print(f"[ERROR] API 请求异常 [{self.call_count}] | 图像: {image_name} | 耗时: {call_latency:.2f}秒 | 错误: {e}")
-            return f"Request Error: {str(e)}"
         except Exception as e:
             call_latency = time.time() - call_start_time
             self.total_latency += call_latency
-            safe_print(f"[ERROR] 处理 API 响应时发生错误 [{self.call_count}] | 图像: {image_name} | 耗时: {call_latency:.2f}秒 | 错误: {e}")
-            return f"Processing Error: {str(e)}"
+            safe_print(f"[ERROR] 调用失败 [{self.call_count}] | 图像: {image_name} | 耗时: {call_latency:.2f}秒 | 错误: {e}")
+            return f"Error: {str(e)}"
+
+    # ==================== 统计接口 ====================
 
     def get_stats(self) -> dict:
         """获取调用统计信息"""
@@ -133,7 +108,7 @@ class BaseAPIClient(ABC):
 
     def print_stats(self, label: str = None):
         """打印调用统计信息"""
-        label = label or self.model_name
+        label = label or self.model_label
         stats = self.get_stats()
         safe_print("")
         safe_print("=" * 60)

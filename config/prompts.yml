@@ -2,3 +2,4 @@ system_prompt_path: prompts/system_prompt.txt
 rag_summarize_prompt_path: prompts/rag_summarize.txt
 report_prompt_path: prompts/report_prompt.txt
 agent_prompt_path: prompts/agent_prompt.txt
+default_prompt_path: prompts/default_prompt.txt

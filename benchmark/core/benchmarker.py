@@ -256,7 +256,7 @@ class Benchmarker:
     def __init__(
         self,
         input_csv_path: str,
-        result_dir: str = "./benchmark/result/benchmark_result/",
+        result_dir: str = "",
         base_filename: str = "benchmark",
         max_rows: int = 50000,
         max_workers: int = 30

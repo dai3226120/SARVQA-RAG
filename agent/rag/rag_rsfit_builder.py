@@ -269,7 +269,7 @@ class SARSemanticCacheSystem:
             import sys
 
             # 将agent目录添加到Python路径，以便导入mainagent模块
-            agent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            agent_dir = get_abs_path("agent")
             if agent_dir not in sys.path:
                 sys.path.insert(0, agent_dir)
 

@@ -9,6 +9,9 @@ from typing import Dict, List
 from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 from collections import Counter
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.path_tool import get_abs_path
 
 # -------------------------- 全局配置 --------------------------
 # 1. API配置（保持不变）
@@ -56,8 +59,8 @@ Answer文本：{answer}
 """.strip()
 
 # 3. 文件路径配置
-INPUT_CSV_PATH = "./dataset_split/SAR-VQA_ALL-180375_filtered_dataset-SAR-ship_answer-empty.csv"
-RESULT_DIR = "./dataset_split/analysis_result"
+INPUT_CSV_PATH = get_abs_path("dataset_split/SAR-VQA_ALL-180375_filtered_dataset-SAR-ship_answer-empty.csv")
+RESULT_DIR = get_abs_path("dataset_split/analysis_result")
 RESULT_FILENAME = "sar_answer_analysis_final.csv"
 STATISTICS_FILENAME = "sar_answer_statistics_final.txt"
 

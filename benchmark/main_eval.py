@@ -6,6 +6,15 @@ SAR-VQA 主评估脚本 - 统一调用入口
 import os
 import sys
 import datetime
+
+# 确保项目根目录在 sys.path 中（bootstrap 阶段必须用 __file__ 推导，之后统一走 path_tool）
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(_THIS_DIR)
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
+from utils.path_tool import get_project_root, get_abs_path
+
 import matplotlib
 import matplotlib.pyplot as plt
 
@@ -19,11 +28,6 @@ except AttributeError:
 # ---- 新模块导入 ----
 import config as cfg
 from core import (
-    MainAgentClient,
-    doubao_agent_client,
-    internvl_agent_client,
-    doubao_agent_rscsv_client,
-    internvl_agent_rscsv_client,
     process_vqa_data,
     create_process_row_func,
     Benchmarker,
@@ -31,14 +35,36 @@ from core import (
     patch_plt_show_for_save,
     update_excel_summary,
 )
-from models import doubao_client, internvl_client
+from models import (
+    doubao_client,
+    internvl_client,
+    doubao_agent_client,
+    internvl_agent_client,
+    doubao_agent_rscsv_client,
+    internvl_agent_rscsv_client,
+)
 from utils.print_utils import print_separator
 
 
 # ====================== 模型映射配置 ======================
 # 每个 MODEL_KEY 对应：客户端实例 / 调用函数 / 文件标签
-# MODEL_KEY = "agent-text-doubao-seed_rscsv"
+# 模型类型：
+#     - doubao-seed: 普通Doubao模型
+#     - internVL: 普通InternVL模型
+#     - agent-text-doubao-seed: 文本Doubao模型
+#     - agent-text-doubao-seed_rscsv: 文本Doubao模型（RSCSV）
+#     - agent-text-internVL: 文本InternVL模型
+#     - agent-text-internVL_rscsv: 文本InternVL模型（RSCSV）
+
+# MODEL_KEY = "doubao-seed"
 MODEL_KEY = "agent-text-doubao-seed"
+# MODEL_KEY = "agent-text-doubao-seed_rscsv"
+
+# MODEL_KEY = "internVL"
+# MODEL_KEY = "agent-text-internVL"
+# MODEL_KEY = "agent-text-internVL_rscsv"
+
+
 
 _MODEL_REGISTRY = {
     "doubao-seed": {
@@ -71,6 +97,13 @@ _MODEL_REGISTRY = {
         "client": internvl_agent_client,
         "api_call": internvl_agent_client.call,
     },
+    "agent-text-internVL_rscsv": {
+        "model_type": cfg.ModelType.AGENT_INTERNVL,
+        "file_tag": "agent-text-internvl3-5-8b_rscsv",
+        "client": internvl_agent_rscsv_client,
+        "api_call": internvl_agent_rscsv_client.call,
+    },
+    
 }
 
 # ====================== 数据集与路径配置 ======================
@@ -78,7 +111,7 @@ DATASET_TAG = "val"
 IMAGE_BASE_PATH = cfg.path_config.IMAGE_BASE_PATH
 
 # ====================== 数据处理参数（可在此处直接修改）======================
-MAX_PROCESS_ROWS = 100
+MAX_PROCESS_ROWS = 10000
 START_ROW = 0
 MAX_WORKERS = 50
 BATCH_SAVE_THRESHOLD = 100

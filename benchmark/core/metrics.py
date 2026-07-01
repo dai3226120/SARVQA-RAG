@@ -43,8 +43,8 @@ def count_domain_terms(text, domain_regex):
 
 
 # 领域词汇表路径（相对于项目根目录）
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-_DOMAIN_TERMS_FILE = os.path.join(_PROJECT_ROOT, 'dataset_analysis', 'sar_remote_sensing_terms_batch.txt')
+from utils.path_tool import get_abs_path
+_DOMAIN_TERMS_FILE = get_abs_path('dataset_analysis/sar_remote_sensing_terms_batch.txt')
 _DOMAIN_TERMS = load_domain_terms(_DOMAIN_TERMS_FILE)
 _DOMAIN_REGEX = build_domain_regex(_DOMAIN_TERMS)
 

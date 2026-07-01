@@ -4,10 +4,14 @@ from dotenv import load_dotenv
 
 import os
 import sys
+from utils.path_tool import get_project_root
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
+root_dir = get_project_root()
+if root_dir not in sys.path:
+    sys.path.insert(0, root_dir)
 
 import base64
 # 导入LangChain 相关模块

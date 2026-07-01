@@ -7,6 +7,7 @@ from matplotlib.patches import Rectangle
 
 # 添加项目根目录到Python路径（根据实际项目结构调整）
 sys.path.append(os.path.abspath("."))
+from utils.path_tool import get_abs_path
 
 # 导入rag_rsfit_builder中的核心类
 from rag.rag_rsfit_builder import SARSemanticCacheSystem, Config
@@ -18,7 +19,7 @@ from rag.rag_rsfit_builder import SARSemanticCacheSystem, Config
 TARGET_QUESTION = "Are there any agricultural fields or cultivated land visible near the buildings?"
 
 # 日志文件路径（替换为实际路径）
-LOG_FILE_PATH = "./agent/data/rag_feedback_logs.csv"
+LOG_FILE_PATH = get_abs_path("agent/data/rag_feedback_logs.csv")
 
 # 初始化隶属度计算系统
 system = SARSemanticCacheSystem()
@@ -148,7 +149,7 @@ ax.add_patch(Rectangle((0, 0), x_mean, y_mean, color=quadrant_colors["低相似-
 
 # 调整布局并保存
 plt.tight_layout()
-plt.savefig("./membership_quadrant_scatter.png", dpi=300, bbox_inches="tight")
+plt.savefig(get_abs_path("membership_quadrant_scatter.png"), dpi=300, bbox_inches="tight")
 plt.show()
 
 # ==============================================

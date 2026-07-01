@@ -48,10 +48,15 @@ def convert_csv_to_utf8(input_file_path, output_file_path=None):
 
 # --- 主程序 ---
 if __name__ == "__main__":
+    import sys
+    import os
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from utils.path_tool import get_abs_path
+
     # 请修改这里的文件名为你实际的文件名
-    # input_filename = "./dataset_analysis/origin_dataset/Landsat30-AU-VQA-train.csv" 
-    # input_filename = "./dataset_analysis/origin_dataset/2024EarthVQA_QA.csv" 
-    input_filename = "./dataset_analysis/origin_dataset/SARLANG-1M_all.csv"
+    # input_filename = get_abs_path("dataset_analysis/origin_dataset/Landsat30-AU-VQA-train.csv") 
+    # input_filename = get_abs_path("dataset_analysis/origin_dataset/2024EarthVQA_QA.csv") 
+    input_filename = get_abs_path("dataset_analysis/origin_dataset/SARLANG-1M_all.csv")
     
     # 执行转换
     convert_csv_to_utf8(input_filename)

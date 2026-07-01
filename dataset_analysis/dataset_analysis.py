@@ -1,13 +1,17 @@
 import pandas as pd
 import re
 from collections import Counter
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.path_tool import get_abs_path
 
 # ---------------------- 1. 读取数据 ----------------------
 # 请确保csv文件路径正确
-# df = pd.read_csv("./dataset_analysis/origin_dataset/SAR-VQA_ALL-180375_filtered_dataset-SAR-ship_answer-empty.csv")
-df = pd.read_csv("./dataset_analysis/origin_dataset/Landsat30-AU-VQA-train_answer-empty.csv")
-# df = pd.read_csv("./dataset_analysis/origin_dataset/2024EarthVQA_QA_answer-empty.csv")
-# df = pd.read_csv("./dataset_analysis/origin_dataset/SARLANG-1M_all_answer-empty.csv")
+# df = pd.read_csv(get_abs_path("dataset_analysis/origin_dataset/SAR-VQA_ALL-180375_filtered_dataset-SAR-ship_answer-empty.csv"))
+df = pd.read_csv(get_abs_path("dataset_analysis/origin_dataset/Landsat30-AU-VQA-train_answer-empty.csv"))
+# df = pd.read_csv(get_abs_path("dataset_analysis/origin_dataset/2024EarthVQA_QA_answer-empty.csv"))
+# df = pd.read_csv(get_abs_path("dataset_analysis/origin_dataset/SARLANG-1M_all_answer-empty.csv"))
 
 # ---------------------- 2. 提取数据集名称 ----------------------
 # 从 image 字段提取数据集名称：/SAR-TEXT-data/Image/XXX/
@@ -89,7 +93,7 @@ for q, datasets in question_to_datasets.items():
 question_df = pd.DataFrame(question_stats)
 
 # ---------------------- 5. 输出CSV文件 ----------------------
-output_dir = "./dataset_analysis/dataset_analysis_result/"
+output_dir = get_abs_path("dataset_analysis/dataset_analysis_result/")
 
 # dataset_summary_df.to_csv(output_dir + "数据集总统计_SAR-VQA_ALL-180375_filtered_dataset-SAR-ship_answer-empty.csv", index=False, encoding="utf-8-sig")
 # dataset_detail_df.to_csv(output_dir + "数据集-问题出现次数_SAR-VQA_ALL-180375_filtered_dataset-SAR-ship_answer-empty.csv", index=False, encoding="utf-8-sig")

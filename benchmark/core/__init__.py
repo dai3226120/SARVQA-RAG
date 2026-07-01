@@ -4,13 +4,6 @@ core 模块
 """
 
 from .predictor import (
-    MainAgentClient,
-    doubao_agent_client,
-    internvl_agent_client,
-    doubao_agent_rscsv_client,
-    internvl_agent_rscsv_client,
-    call_doubao_agent,
-    call_internvl_agent,
     process_vqa_data,
     create_process_row_func,
 )

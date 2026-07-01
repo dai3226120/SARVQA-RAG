@@ -1,34 +1,17 @@
 """
 InternVL 模型 API 客户端
+使用 factory.py 的 internvl3_5_8b_model 实例进行多模态调用
 """
 
+from model.factory import internvl3_5_8b_model
 from .base_model import BaseAPIClient
-from config import internvl_config
 
 
 class InternVLAPIClient(BaseAPIClient):
     """InternVL API 客户端"""
 
-    def __init__(self, config=None):
-        super().__init__(config or internvl_config)
-        self.max_tokens = self.config.MAX_TOKENS
-
-    def _build_request_payload(self, base64_image: str, formatted_prompt: str) -> dict:
-        return {
-            "model": self.model_name,
-            "temperature": float(self.temperature),
-            "max_tokens": self.max_tokens,
-            "messages": [{
-                "role": "user",
-                "content": [
-                    {"image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}, "type": "image_url"},
-                    {"text": formatted_prompt, "type": "text"}
-                ]
-            }]
-        }
-
-    def _build_headers(self) -> dict:
-        return {"Content-Type": "application/json"}
+    def __init__(self):
+        super().__init__(internvl3_5_8b_model, model_label="InternVL")
 
     def print_stats(self):
         """打印调用统计信息"""
