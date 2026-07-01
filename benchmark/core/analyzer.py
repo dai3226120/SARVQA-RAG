@@ -57,6 +57,37 @@ def calculate_conf_threshold(data: pd.DataFrame, col_name: str, confidence: floa
     return best_threshold, best_confidence, best_sample_num
 
 
+# ====================== 图表保存工具 ======================
+def patch_plt_show_for_save(save_dir: str, file_tag: str):
+    """
+    Monkey-patch plt.show，将图表保存为 PNG 文件
+
+    参数:
+        save_dir: 图表保存目录
+        file_tag: 文件标签，用于命名
+
+    返回:
+        tuple: (original_show, plot_counter)
+            - original_show: 原始 plt.show 函数，用于恢复
+            - plot_counter: 列表包装的计数器，完成后可读取 plot_counter[0] 获知保存数量
+    """
+    import matplotlib.pyplot as plt
+
+    original_show = plt.show
+    plot_counter = [0]
+
+    def save_and_close(*args, **kwargs):
+        filename = f"plot_{plot_counter[0]}_{file_tag}.png"
+        filepath = os.path.join(save_dir, filename)
+        plt.savefig(filepath, dpi=100, bbox_inches='tight', format='png')
+        print(f"📊 图表已保存: {filename}")
+        plt.close()
+        plot_counter[0] += 1
+
+    plt.show = save_and_close
+    return original_show, plot_counter
+
+
 # ====================== 结果分析 ======================
 class ResultAnalyzer:
     """结果数据分析器"""

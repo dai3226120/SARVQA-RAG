@@ -14,10 +14,10 @@ import concurrent.futures
 import pandas as pd
 
 from config import data_config, path_config, prompt_config
-from agent.utils.thread_lock import lock
-from agent.utils.print_utils import safe_print, format_elapsed_time
-from agent.utils.text_utils import tokenize_text, clean_special_chars
-from agent.utils.csv_utils import build_image_path, save_results_to_csv
+from utils.thread_lock import lock
+from utils.print_utils import safe_print, format_elapsed_time
+from utils.text_utils import tokenize_text, clean_special_chars
+from utils.csv_utils import build_image_path, save_results_to_csv
 from .metrics import retrieval_metrics, compute_information_metrics
 from .benchmarker import Benchmarker
 
@@ -329,7 +329,9 @@ def process_vqa_data(
     max_rows=None,
     max_workers=None,
     start_row=None,
-    required_columns=None
+    required_columns=None,
+    use_timestamp=True,
+    batch_save_threshold=None,
 ):
     """
     通用的 SAR-VQA 数据并行处理函数
@@ -357,6 +359,8 @@ def process_vqa_data(
         start_row = data_config.START_ROW
     if required_columns is None:
         required_columns = data_config.REQUIRED_COLUMNS
+    if batch_save_threshold is None:
+        batch_save_threshold = data_config.BATCH_SAVE_THRESHOLD
 
     safe_print("[CONFIG] 处理配置:")
     safe_print(f"  - 输入文件: {csv_input_path}")
@@ -365,12 +369,15 @@ def process_vqa_data(
     safe_print(f"  - 最大行数: {max_rows}")
     safe_print(f"  - 起始行: {start_row}")
     safe_print(f"  - 最大并发: {max_workers}")
-    safe_print(f"  - 批次阈值: {data_config.BATCH_SAVE_THRESHOLD}")
+    safe_print(f"  - 批次阈值: {batch_save_threshold}")
     safe_print(f"  - 必需列: {required_columns}")
     safe_print("-" * 80)
 
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_csv_path = f"{result_dir}/{base_filename}_{timestamp}.csv"
+    if use_timestamp:
+        output_csv_path = f"{result_dir}/{base_filename}_{timestamp}.csv"
+    else:
+        output_csv_path = f"{result_dir}/{base_filename}.csv"
     latest_csv_path = f"{result_dir}/{base_filename}_latest.csv"
 
     os.makedirs(result_dir, exist_ok=True)
@@ -427,7 +434,7 @@ def process_vqa_data(
                 if result_item is not None:
                     results.append(result_item)
 
-                if len(results) % data_config.BATCH_SAVE_THRESHOLD == 0 or completed_count == total_tasks:
+                if len(results) % batch_save_threshold == 0 or completed_count == total_tasks:
                     elapsed = time.time() - start_time
                     speed = completed_count / elapsed if elapsed > 0 else 0.0
                     progress = completed_count / total_tasks * 100 if total_tasks else 100.0

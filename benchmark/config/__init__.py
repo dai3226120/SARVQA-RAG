@@ -13,7 +13,7 @@ from typing import List
 _CONFIG_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # 确保项目根目录在 sys.path 中，使 benchmark 代码可以通过
-# from agent.utils.xxx import ... 访问 agent 工具包
+# from utils.xxx import ... 访问工具包
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(_CONFIG_DIR))
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
@@ -52,11 +52,13 @@ class InternVLConfig:
     MAX_TOKENS: int = _model_cfg['internVL']['max_tokens']
 
 
+from utils.prompt_loader import load_agent_prompts
+
 # ====================== 提示词配置 ======================
 @dataclass
 class PromptConfig:
     DEFAULT_PROMPT: str = _model_cfg['prompts']['default']
-    AGENT_PROMPT: str = _agent_cfg['prompts']['agent']
+    AGENT_PROMPT: str = load_agent_prompts()
 
 
 # ====================== 数据处理配置 ======================

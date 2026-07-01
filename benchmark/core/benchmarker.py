@@ -271,9 +271,12 @@ class Benchmarker:
         self.failed_count = 0
         self.total_time = 0.0
 
-    def run(self) -> str:
+    def run(self, use_timestamp: bool = True) -> str:
         """
         执行 benchmark 评估流水线
+
+        参数:
+            use_timestamp: 是否在文件名中添加时间戳（默认 True）
 
         返回:
             str: 输出 CSV 路径
@@ -360,7 +363,10 @@ class Benchmarker:
         os.makedirs(self.result_dir, exist_ok=True)
 
         timestamp = time.strftime("%Y%m%d_%H%M%S", time.localtime())
-        output_csv_path = os.path.join(self.result_dir, f"{self.base_filename}_{timestamp}.csv")
+        if use_timestamp:
+            output_csv_path = os.path.join(self.result_dir, f"{self.base_filename}_{timestamp}.csv")
+        else:
+            output_csv_path = os.path.join(self.result_dir, f"{self.base_filename}.csv")
         latest_csv_path = os.path.join(self.result_dir, f"{self.base_filename}_latest.csv")
 
         with open(output_csv_path, mode='w', newline='', encoding='utf-8') as csv_file:

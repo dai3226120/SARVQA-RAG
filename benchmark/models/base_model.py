@@ -10,7 +10,7 @@ import requests
 from abc import ABC, abstractmethod
 
 from config import prompt_config
-from agent.utils.print_utils import safe_print
+from utils.print_utils import safe_print
 
 
 class BaseAPIClient(ABC):

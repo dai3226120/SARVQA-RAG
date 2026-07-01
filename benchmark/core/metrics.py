@@ -5,8 +5,8 @@
 
 import os
 import re
-from agent.utils.text_utils import tokenize_text
-from agent.utils.thread_lock import lock
+from utils.text_utils import tokenize_text
+from utils.thread_lock import lock
 
 
 # ====================== 领域词汇表加载 ======================

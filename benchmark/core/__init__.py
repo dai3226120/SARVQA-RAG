@@ -36,4 +36,9 @@ from .metrics import (
 from .analyzer import (
     ResultAnalyzer,
     calculate_conf_threshold,
+    patch_plt_show_for_save,
+)
+
+from .excel_summary import (
+    update_excel_summary,
 )

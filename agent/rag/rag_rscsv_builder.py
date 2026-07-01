@@ -20,7 +20,7 @@ class RscsvBuilder:
         self.collection_name=chroma_conf["collection_name"]
         self.persist_directory=get_abs_path(chroma_conf["persist_diretory"])
         self.data_dir = get_abs_path(chroma_conf["data_path"])  # 数据存储目录
-        self.sar_csv_path = get_abs_path("data/SAR-VQA-180375.csv")  # 原始SAR数据路径
+        self.sar_csv_path = get_abs_path("agent/data/SAR-VQA-180375.csv")  # 原始SAR数据路径
         self.slice_csv_name = "sar_slices.csv"  # 切片数据文件名
         self.fit_csv_name = "sar_fit_degree.csv"  # 贴合度数据文件名
         self.md5_store_path = get_abs_path(chroma_conf["md5_hex_store"])  # MD5存储路径# 轻量级文本嵌入模型
