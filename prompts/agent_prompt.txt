@@ -1,9 +1,1 @@
-Answer the following question about the SAR image in a detailed, descriptive style. Your answer should be strictly limited to 150 words.
-Your response should:
-1. Be in complete sentences
-2. Use formal, technical but clear language (like marine/Remote Sensing imaging terminology)
-3. Provide specific details observable in the image
-4. Maintain a consistent tone with professional Remote Sensing image analysis
-5. Avoid short answers - be descriptive and comprehensive
-Answer in English.
-Question: {question}
+{question}

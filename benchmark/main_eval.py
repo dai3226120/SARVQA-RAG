@@ -78,7 +78,7 @@ DATASET_TAG = "val"
 IMAGE_BASE_PATH = cfg.path_config.IMAGE_BASE_PATH
 
 # ====================== 数据处理参数（可在此处直接修改）======================
-MAX_PROCESS_ROWS = 1
+MAX_PROCESS_ROWS = 100
 START_ROW = 0
 MAX_WORKERS = 50
 BATCH_SAVE_THRESHOLD = 100
