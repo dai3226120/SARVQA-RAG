@@ -9,8 +9,8 @@ from matplotlib.patches import Rectangle
 sys.path.append(os.path.abspath("."))
 from utils.path_tool import get_abs_path
 
-# 导入rag_rsfit_builder中的核心类
-from rag.rag_rsfit_builder import SARSemanticCacheSystem, Config
+# 导入语义缓存系统中的核心类
+from rag.membership.cache_system import SemanticCacheSystem, Config
 
 # ==============================================
 # 1. 配置参数与初始化系统
@@ -22,7 +22,7 @@ TARGET_QUESTION = "Are there any agricultural fields or cultivated land visible 
 LOG_FILE_PATH = get_abs_path("agent/data/rag_feedback_logs.csv")
 
 # 初始化隶属度计算系统
-system = SARSemanticCacheSystem()
+system = SemanticCacheSystem()
 system.log_path = LOG_FILE_PATH  # 强制指定日志文件路径
 if os.path.exists(system.log_path):
     system.log_df = pd.read_csv(system.log_path)

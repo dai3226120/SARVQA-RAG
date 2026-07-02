@@ -1,8 +1,8 @@
 # 导入必要的工具类和库
 from langchain_core.tools import tool
-from rag.rag_service import RagSummarizeService  # 向量检索服务
-from rag.rag_rscsv_service import RscsvService   # 遥感问答服务
-from rag.rag_rscsv_service_rscsv import RscsvServiceRscsv   # 遥感问答服务
+from rag.services.knowledge_service import KnowledgeRagService  # 向量检索服务
+from rag.services.membership_service import MembershipHybridService   # 隶属度混合检索服务
+from rag.services.slice_service import SliceRetrievalService   # 切片检索服务
 import random
 from utils.config_handler import agent_conf  # 配置处理器
 from utils.path_tool import get_abs_path    # 获取绝对路径工具
@@ -10,9 +10,9 @@ from utils.logger_handler import logger      # 日志处理器
 import os
 
 # 初始化服务实例
-rag = RagSummarizeService()  # 用于弱电工程相关检索
-rag_rscsv_service = RscsvService()  # 用于遥感问答检索
-rag_rscsv_service_rscsv = RscsvServiceRscsv()  # 用于遥感问答检索（只有全局切片）
+rag = KnowledgeRagService()  # 用于弱电工程相关检索
+rag_rscsv_service = MembershipHybridService()  # 用于遥感问答检索（隶属度+切片混合）
+rag_rscsv_service_rscsv = SliceRetrievalService()  # 用于遥感问答检索（只有全局切片）
 # 测试数据：用户ID列表和月份列表
 user_ids = ["1001", "1002"]
 month_arr = ["2025-01", "2025-02"]

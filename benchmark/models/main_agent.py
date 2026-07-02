@@ -89,13 +89,10 @@ class MainAgentClient:
                     init_messages.append("   - 正在创建 Agent 实例...")
 
                     # 重置隶属度统计
-                    from rag.rag_rscsv_service import RscsvService
-                    self._rscsv_service_class = RscsvService
-                    if hasattr(RscsvService, 'reset_membership_stats'):
-                        RscsvService.reset_membership_stats()
-                    elif hasattr(RscsvService, '_membership_total_calls'):
-                        RscsvService._membership_total_calls = 0
-                        RscsvService._membership_hit_calls = 0
+                    from rag.services.membership_service import MembershipHybridService
+                    self._rscsv_service_class = MembershipHybridService
+                    if hasattr(MembershipHybridService, 'reset_membership_stats'):
+                        MembershipHybridService.reset_membership_stats()
 
                     # 获取工具耗时追踪器类引用
                     from tools.middleware import ToolLatencyTracker

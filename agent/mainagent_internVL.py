@@ -112,8 +112,8 @@ class MainAgent:
 
     def get_tool_hit_stats(self):
         """获取工具调用命中率统计，返回隶属度命中率"""
-        from rag.rag_rscsv_service import RscsvService
-        stats = RscsvService.get_membership_stats_static()
+        from rag.services.membership_service import MembershipHybridService
+        stats = MembershipHybridService.get_membership_stats_static()
         return {"rag_rscsv": stats["hit_rate"]}
 
 if __name__=="__main__":

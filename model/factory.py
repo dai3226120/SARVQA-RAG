@@ -69,6 +69,24 @@ class DoubaoSeed20MiniModelFactory(BaseModelFactory):
         )
 
 
+# Doubao 1.5 Lite 模型工厂：用于 LLM 语义判断（替代原原生 requests 调用）
+class DoubaoLiteModelFactory(BaseModelFactory):
+    def generate(self) -> Optional[Embeddings | BaseChatModel]:
+        """
+        生成 Doubao 1.5 Lite 模型实例
+        用于语义匹配判断等轻量级 LLM 任务
+        API key 优先从环境变量读取，兼容 .env 配置
+        """
+        return ChatOpenAI(
+            model_name=model_conf['doubao-1-5-lite_model_name'],
+            api_key=os.environ.get('DOUBAO_SEED_API_KEY') or model_conf.get('doubao_seed_api_key', ''),
+            base_url=model_conf['doubao_seed_full_endpoint'],
+            temperature=float(os.environ.get('DOUBAO_SEED_TEMPERATURE') or model_conf.get('doubao_1_5_lite_temperature', 0.7)),
+            timeout=model_conf.get('doubao_1_5_lite_timeout', 30),
+            extra_body={"thinking": {"type": model_conf.get('doubao_1_5_lite_thinking_mode', 'disabled')}},
+        )
+
+
 # 图像识别模型工厂：用于创建InternVL2-8B模型
 class InternVL2ModelFactory(BaseModelFactory):
     def generate(self) -> Optional[Embeddings | BaseChatModel]:
@@ -99,3 +117,4 @@ huggingface_embed_model = HuggingFaceEmbeddingsFactory().generate()  # HuggingFa
 doubao_seed_20_mini_model = DoubaoSeed20MiniModelFactory().generate()  # 多模态模型
 internvl2_8b_model = InternVL2ModelFactory().generate()  # 图像识别模型
 internvl3_5_8b_model = InternVL35ModelFactory().generate()  # 图像识别模型
+doubao_1_5_lite_model = DoubaoLiteModelFactory().generate()  # LLM 语义判断模型

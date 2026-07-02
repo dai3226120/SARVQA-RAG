@@ -3,6 +3,12 @@ chat_model_name: qwen3-max
 embedding_model_name: text-embedding-v4
 huggingface_embedding_model_name: all-MiniLM-L6-v2
 
+# ====================== Doubao 1.5 Lite 配置（LLM 判断专用） ======================
+doubao-1-5-lite_model_name: doubao-1-5-lite-32k-250115
+doubao_1_5_lite_timeout: 30
+doubao_1_5_lite_temperature: 0.7
+doubao_1_5_lite_thinking_mode: "disabled"
+
 # ====================== Doubao Seed 配置 ======================
 doubao-seed-2-0-mini_model_name: doubao-seed-2-0-mini-260428
 doubao_seed_api_endpoint: "https://ark.cn-beijing.volces.com/api/v3"
