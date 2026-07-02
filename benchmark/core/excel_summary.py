@@ -17,6 +17,8 @@ SUMMARY_COLUMNS = [
     "Agent-总调用次数", "Agent-成功次数", "Agent-成功率(%)", "Agent-总耗时(秒)", "Agent-平均耗时(秒)",
     # 检索工具统计
     "检索-调用次数", "检索-总耗时(秒)", "检索-平均耗时(秒)",
+    # 隶属度命中率
+    "隶属度命中率(%)",
     # 结果评估统计
     "评估-总行数", "评估-成功行数", "评估-成功率(%)",
     "评估-语义匹配率(%)", "评估-平均IG", "评估-平均ID",
@@ -62,6 +64,9 @@ def update_excel_summary(timestamp: str, model_type: str, file_tag: str,
         "检索-调用次数": retrieval_stats.get("call_count", 0),
         "检索-总耗时(秒)": _r(retrieval_stats.get("total_latency", 0), 4),
         "检索-平均耗时(秒)": _r(retrieval_stats.get("avg_latency", 0), 4),
+        # 隶属度命中率
+        "隶属度命中率(%)": _r(pred_result.get("membership_hit_rate", 0) * 100, 2)
+        if pred_result.get("membership_hit_rate") is not None else "N/A",
         # 结果评估统计
         "评估-总行数": bench_stats.get("total_rows", 0),
         "评估-成功行数": bench_stats.get("success_count", 0),

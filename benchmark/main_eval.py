@@ -111,7 +111,7 @@ DATASET_TAG = "val"
 IMAGE_BASE_PATH = cfg.path_config.IMAGE_BASE_PATH
 
 # ====================== 数据处理参数（可在此处直接修改）======================
-MAX_PROCESS_ROWS = 10000
+MAX_PROCESS_ROWS = 100
 START_ROW = 0
 MAX_WORKERS = 50
 BATCH_SAVE_THRESHOLD = 100
@@ -170,6 +170,7 @@ def run_prediction(model_key: str, output_dir: str) -> dict:
                 client.print_stats()
             client_stats = client.get_stats() if hasattr(client, 'get_stats') else {}
             retrieval_stats = client.get_retrieval_latency_stats() if hasattr(client, 'get_retrieval_latency_stats') else {}
+            membership_hit_rate = client.get_rag_rscsv_membership_hit_rate() if hasattr(client, 'get_rag_rscsv_membership_hit_rate') else None
             output_file = os.path.join(output_dir, f"{base_filename}_latest.csv")
             print(f"✅ 模型预测完成")
             return {
@@ -180,6 +181,7 @@ def run_prediction(model_key: str, output_dir: str) -> dict:
                     **client_stats,
                 },
                 "retrieval_stats": retrieval_stats,
+                "membership_hit_rate": membership_hit_rate,
             }
         else:
             print(f"❌ 模型预测返回空结果")

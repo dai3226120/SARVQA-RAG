@@ -132,7 +132,7 @@ class RscsvService:
 
     def retrieve(self, query: str) -> str:
         # 确保配置中的 k 为整数
-        return self.hybrid_retrieve(query, slice_k=self.slice_k, membership_k=self.membership_k, top_p=self.top_p)
+        return self.hybrid_retrieve(query, slice_k=self.slice_k, membership_k=self.membership_k, top_p=self.top_p, fit_threshold=self.fit_threshold)
     
     def get_membership_hit_rate(self) -> float:
         """获取隶属度命中率"""

@@ -7,12 +7,6 @@ import os
 from dataclasses import dataclass, field
 from typing import List
 
-# 确保项目根目录在 sys.path 中（bootstrap 阶段必须用 __file__ 推导，之后统一走 path_tool）
-import sys
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if _PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, _PROJECT_ROOT)
-
 from utils.path_tool import get_project_root, get_abs_path
 
 from utils.config_handler import model_conf, chroma_conf, prompts_conf, agent_conf, eval_conf
@@ -49,7 +43,7 @@ class DataConfig:
 
 def _resolve_path(path: str) -> str:
     """将相对路径转为基于项目根目录的绝对路径"""
-    return os.path.normpath(os.path.join(_PROJECT_ROOT, path)) if not os.path.isabs(path) else path
+    return path if os.path.isabs(path) else get_abs_path(path)
 
 
 @dataclass
@@ -58,7 +52,7 @@ class PathConfig:
     RESULT_DIR: str = _resolve_path(eval_conf['paths']['result_dir'])
     BENCHMARK_RESULT_DIR: str = _resolve_path(eval_conf['paths']['benchmark_result_dir'])
     IMAGE_BASE_PATH: str = eval_conf['paths']['image_base_path']
-    AGENT_ROOT_DIR: str = _PROJECT_ROOT
+    AGENT_ROOT_DIR: str = get_project_root()
 
 
 # ====================== Benchmark 分析配置 ======================

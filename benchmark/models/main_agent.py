@@ -224,6 +224,12 @@ class MainAgentClient:
             safe_print(f"   - 总耗时: {latency_stats['total_latency']:.4f}秒")
             safe_print(f"   - 平均耗时: {latency_stats['avg_latency']:.4f}秒/次")
 
+        membership_hit_rate = self.get_rag_rscsv_membership_hit_rate()
+        if membership_hit_rate is not None:
+            safe_print("-" * 60)
+            safe_print(f"隶属度统计:")
+            safe_print(f"   - rag_rscsv 隶属度命中率: {membership_hit_rate:.2%}")
+
         safe_print("=" * 60)
 
     def _filter_tool_logs(self, full_response):
