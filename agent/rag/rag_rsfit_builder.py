@@ -29,11 +29,11 @@ from utils.logger_handler import logger
 # ================================================================
 # 大模型判断配置（从benchmark copy.py引入）
 # ================================================================
-LLM_API_KEY = "e9f2dacd-d0a2-4c9a-ba2a-805ee0b40dcd"
+LLM_API_KEY = os.environ.get('DOUBAO_SEED_API_KEY', '')
 LLM_API_ENDPOINT = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
 LLM_MODEL_NAME = "doubao-1-5-lite-32k-250115"
 LLM_API_TIMEOUT = 30
-LLM_API_TEMPERATURE = 0.7
+LLM_API_TEMPERATURE = float(os.environ.get('DOUBAO_SEED_TEMPERATURE', 0.7))
 LLM_SYSTEM_PROMPT = "你是一个语义匹配判断助手，仅返回1或0，不解释原因"
 LLM_PROMPT_TEMPLATE = """
 Question: {question}

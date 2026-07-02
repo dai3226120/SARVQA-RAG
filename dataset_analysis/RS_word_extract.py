@@ -13,9 +13,12 @@ from utils.path_tool import get_abs_path
 # 所有可配置参数（集中管理，按需修改）
 # ==============================================
 # 文件与接口配置
+from dotenv import load_dotenv
+load_dotenv(get_abs_path(".env"))
+
 CSV_PATH = get_abs_path("SAR-VQA-180375.csv")          # CSV文件路径
 API_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
-API_KEY = "e9f2dacd-d0a2-4c9a-ba2a-805ee0b40dcd"  # 请替换为真实API密钥
+API_KEY = os.environ.get('DOUBAO_SEED_API_KEY', '')
 MODEL_NAME = "doubao-1-5-lite-32k-250115"  # 模型名称
 MAX_WORKERS = 50                          # 并行请求数量
 BATCH_SIZE = 100                          # 每批合并的answer数量

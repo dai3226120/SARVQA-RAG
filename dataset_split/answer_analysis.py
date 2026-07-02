@@ -14,12 +14,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.path_tool import get_abs_path
 
 # -------------------------- 全局配置 --------------------------
-# 1. API配置（保持不变）
-VOLC_API_KEY = "e9f2dacd-d0a2-4c9a-ba2a-805ee0b40dcd"
+from dotenv import load_dotenv
+load_dotenv(get_abs_path(".env"))
+
+# 1. API配置（从 .env 获取）
+VOLC_API_KEY = os.environ.get('DOUBAO_SEED_API_KEY', '')
 VOLC_API_ENDPOINT = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
 VOLC_MODEL_NAME = "doubao-1-5-lite-32k-250115"
 API_TIMEOUT = 30
-API_TEMPERATURE = 0.05  # 进一步降低温度，确保结果绝对稳定
+API_TEMPERATURE = float(os.environ.get('DOUBAO_SEED_TEMPERATURE', 0.05))  # 从 .env 获取温度
 API_MAX_RETRIES = 3
 API_RETRY_DELAY = 1
 API_SYSTEM_PROMPT = "你是严格的术语统计工具，只统计列表中明确列出的术语，不做任何扩展，仅返回JSON"
