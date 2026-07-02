@@ -1,7 +1,11 @@
 """yaml做配置k:v"""
 #用于加载配置参数
 import yaml
+from dotenv import load_dotenv
 from utils.path_tool import get_abs_path
+
+# 在读取任何配置前加载 .env 文件，确保环境变量（DASHSCOPE_API_KEY、DEEPSEEK_API_KEY、DOUBAO_SEED_API_KEY、LANGSMITH_* 等）已就绪
+load_dotenv(get_abs_path(".env"))
 
 def laod_model_config(config_path:str = get_abs_path("config/model.yml"),encoding:str = "utf-8"):
     with open(config_path,"r",encoding=encoding) as f:

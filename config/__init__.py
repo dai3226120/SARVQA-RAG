@@ -17,10 +17,10 @@ from utils.prompt_loader import load_agent_prompts, load_default_prompts
 @dataclass
 class DoubaoConfig:
     API_ENDPOINT: str = model_conf['doubao_seed_full_endpoint']
-    API_KEY: str = model_conf['doubao_seed_api_key']
+    API_KEY: str = os.environ.get('DOUBAO_SEED_API_KEY') or model_conf.get('doubao_seed_api_key', '')
     MODEL_NAME: str = model_conf['doubao-seed-2-0-mini_model_name']
     TIMEOUT: int = model_conf['doubao_seed_timeout']
-    TEMPERATURE: float = model_conf['doubao_seed_temperature']
+    TEMPERATURE: float = float(os.environ.get('DOUBAO_SEED_TEMPERATURE') or model_conf.get('doubao_seed_temperature', 0.7))
     THINKING_MODE: str = model_conf['doubao_seed_thinking_mode']
 
 

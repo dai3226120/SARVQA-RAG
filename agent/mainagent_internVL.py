@@ -1,7 +1,3 @@
-# LangSmith 监控和日志工具
-from dotenv import load_dotenv
-# load_dotenv()
-
 import os
 import sys
 from utils.path_tool import get_project_root

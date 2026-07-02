@@ -1,3 +1,4 @@
+import os
 from abc import ABC, abstractmethod
 from typing import Optional
 from langchain_core.embeddings import Embeddings
@@ -56,13 +57,14 @@ class DoubaoSeed20MiniModelFactory(BaseModelFactory):
     def generate(self) -> Optional[Embeddings | BaseChatModel]:
         """
         生成 Doubao Seed 模型实例
+        API key 和 temperature 优先从环境变量读取，兼容 .env 配置
         thinking 参数通过 extra_body 注入，兼容 OpenAI client
         """
         return ChatOpenAI(
             model_name=model_conf['doubao-seed-2-0-mini_model_name'],
-            api_key=model_conf['doubao_seed_api_key'],
+            api_key=os.environ.get('DOUBAO_SEED_API_KEY') or model_conf.get('doubao_seed_api_key', ''),
             base_url=model_conf['doubao_seed_api_endpoint'],
-            temperature=model_conf['doubao_seed_temperature'],
+            temperature=float(os.environ.get('DOUBAO_SEED_TEMPERATURE') or model_conf.get('doubao_seed_temperature', 0.7)),
             extra_body={"thinking": {"type": model_conf['doubao_seed_thinking_mode']}},
         )
 
