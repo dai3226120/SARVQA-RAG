@@ -57,8 +57,8 @@ from utils.print_utils import print_separator
 #     - agent-text-internVL_rscsv: 文本InternVL模型（RSCSV）
 
 # MODEL_KEY = "doubao-seed"
-# MODEL_KEY = "agent-text-doubao-seed"
-MODEL_KEY = "agent-text-doubao-seed_rscsv"
+MODEL_KEY = "agent-text-doubao-seed"
+# MODEL_KEY = "agent-text-doubao-seed_rscsv"
 
 # MODEL_KEY = "internVL"
 # MODEL_KEY = "agent-text-internVL"
