@@ -72,36 +72,42 @@ _MODEL_REGISTRY = {
         "file_tag": cfg.get_file_tag(cfg.ModelType.DOUBAO),
         "client": doubao_client,
         "api_call": doubao_client.call,
+        "is_agent": False,
     },
     "internVL": {
         "model_type": cfg.ModelType.INTERNVL,
         "file_tag": cfg.get_file_tag(cfg.ModelType.INTERNVL),
         "client": internvl_client,
         "api_call": internvl_client.call,
+        "is_agent": False,
     },
     "agent-text-doubao-seed": {
         "model_type": cfg.ModelType.AGENT_DOUBAO,
         "file_tag": cfg.get_file_tag(cfg.ModelType.AGENT_DOUBAO),
         "client": doubao_agent_client,
         "api_call": doubao_agent_client.call,
+        "is_agent": True,
     },
     "agent-text-doubao-seed_rscsv": {
         "model_type": cfg.ModelType.AGENT_DOUBAO,
         "file_tag": "agent-text-doubao-seed-2-0-mini_rscsv",
         "client": doubao_agent_rscsv_client,
         "api_call": doubao_agent_rscsv_client.call,
+        "is_agent": True,
     },
     "agent-text-internVL": {
         "model_type": cfg.ModelType.AGENT_INTERNVL,
         "file_tag": cfg.get_file_tag(cfg.ModelType.AGENT_INTERNVL),
         "client": internvl_agent_client,
         "api_call": internvl_agent_client.call,
+        "is_agent": True,
     },
     "agent-text-internVL_rscsv": {
         "model_type": cfg.ModelType.AGENT_INTERNVL,
         "file_tag": "agent-text-internvl3-5-8b_rscsv",
         "client": internvl_agent_rscsv_client,
         "api_call": internvl_agent_rscsv_client.call,
+        "is_agent": True,
     },
     
 }
@@ -111,10 +117,10 @@ DATASET_TAG = "val"
 IMAGE_BASE_PATH = cfg.path_config.IMAGE_BASE_PATH
 
 # ====================== 数据处理参数（可在此处直接修改）======================
-MAX_PROCESS_ROWS = 5
+MAX_PROCESS_ROWS = 40
 START_ROW = 0
-MAX_WORKERS = 50
-BATCH_SAVE_THRESHOLD = 100
+MAX_WORKERS = 20
+BATCH_SAVE_THRESHOLD = 300
 
 # ====================== 分析参数 ======================
 CONFIDENCE_THRESHOLD = cfg.analysis_config.CONFIDENCE_THRESHOLD
@@ -132,6 +138,7 @@ def run_prediction(model_key: str, output_dir: str) -> dict:
     file_tag = entry["file_tag"]
     api_call = entry["api_call"]
     client = entry["client"]
+    is_agent = entry.get("is_agent", False)
 
     print_separator(f"步骤 1/3: 模型预测 ({model_key})")
 
@@ -147,7 +154,20 @@ def run_prediction(model_key: str, output_dir: str) -> dict:
     print(f"   - 最大行数: {MAX_PROCESS_ROWS} | 起始行: {START_ROW}")
     print(f"   - 最大并发: {MAX_WORKERS} | 批次阈值: {BATCH_SAVE_THRESHOLD}")
 
-    process_func = create_process_row_func(api_call, include_metrics=True)
+    # Agent 模型使用 AGENT_PROMPT 计算 IG/ID，并传入 client 以获取 RAG 增强的 IG/ID
+    if is_agent:
+        process_func = create_process_row_func(
+            api_call,
+            include_metrics=True,
+            prompt_template=cfg.prompt_config.AGENT_PROMPT,
+            agent_client=client,
+        )
+    else:
+        process_func = create_process_row_func(
+            api_call,
+            include_metrics=True,
+            prompt_template=cfg.prompt_config.DEFAULT_PROMPT,
+        )
 
     print_separator(char="-")
 

@@ -84,6 +84,9 @@ class MainAgent:
                     rag_parts.append(str(content))
         rag_context = "\n\n".join(rag_parts)
 
+        # 保存到实例属性供 get_rag_output() 使用
+        self._last_rag_context = rag_context
+
         # ----- 第二步：用 internvl 多模态模型生成最终答案 -----
         system_text = load_system_prompts()
         if rag_context:
@@ -115,6 +118,12 @@ class MainAgent:
         from rag.services.membership_service import MembershipHybridService
         stats = MembershipHybridService.get_membership_stats_static()
         return {"rag_rscsv": stats["hit_rate"]}
+
+    def get_rag_output(self) -> str:
+        """获取最后一次 RAG 工具调用的累积输出文本"""
+        # internVL 变体在 execute_stream 内部生成 rag_context，
+        # 通过 _last_rag_context 属性暴露即可
+        return getattr(self, '_last_rag_context', '')
 
 if __name__=="__main__":
     agent = MainAgent()

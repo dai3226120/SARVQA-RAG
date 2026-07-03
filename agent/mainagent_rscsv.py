@@ -29,6 +29,7 @@ class MainAgent:
         # self.tools = [rag_summarize, rag_rscsv_rscsv]
         self.tools = [rag_rscsv_rscsv]
         self.last_slice_ids = []
+        self.rag_output = ""  # 累积 RAG 工具输出文本
 
         self.agent = create_agent(
             model = doubao_seed_20_mini_model,  # 使用多模态模型
@@ -63,6 +64,8 @@ class MainAgent:
         input_dict = {"messages": [HumanMessage(content=content)]}
         yielded_ai_text_len = 0
         self.last_slice_ids = []
+        self.rag_output = ""  # 重置 RAG 输出
+        rag_parts = []
 
         try:
             for chunk in self.agent.stream(input_dict, stream_mode="values"):
@@ -89,6 +92,14 @@ class MainAgent:
                             self.last_slice_ids = ids_str.split(',')
                             print(f"[DEBUG] Extracted slice_ids: {self.last_slice_ids}", file=sys.stderr)
 
+                # 捕获 RAG 工具输出
+                if last_msg.type == "tool" and hasattr(last_msg, "content"):
+                    tc = last_msg.content
+                    if isinstance(tc, list):
+                        rag_parts.append(" ".join(str(part) for part in tc))
+                    else:
+                        rag_parts.append(str(tc))
+
                 if last_msg.type == "ai" and last_msg.content:
                     # 只有没有tool_calls时才是最终回答
                     if not getattr(last_msg, "tool_calls", None):
@@ -108,9 +119,15 @@ class MainAgent:
                             yield new_chunk
                             yielded_ai_text_len = len(current_text)
         except Exception as e:
-            logger.error(f"[MainAgent] 模型调用失败: {e}", exc_info=True)  # 打印完整错误堆栈
-            yield f"执行出错：{str(e)}"  # 返回具体错误，而非仅500
+            logger.error(f"[MainAgent] 模型调用失败: {e}", exc_info=True)
+            yield f"执行出错：{str(e)}"
             return
+        finally:
+            self.rag_output = "\n\n".join(rag_parts) if rag_parts else ""
+
+    def get_rag_output(self) -> str:
+        """获取最后一次 RAG 工具调用的累积输出文本"""
+        return getattr(self, 'rag_output', '')
 
 if __name__=="__main__":
     agent = MainAgent()

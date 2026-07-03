@@ -186,13 +186,15 @@ def process_vqa_data(
         return None
 
 
-def create_process_row_func(api_call_func, include_metrics=False):
+def create_process_row_func(api_call_func, include_metrics=False, prompt_template=None, agent_client=None):
     """
     创建处理单行数据的函数
 
     参数:
         api_call_func: API 调用函数，签名为 (image_path, question) -> str
         include_metrics: 是否包含指标计算
+        prompt_template: IG/ID 计算用的提示词模板（None 则使用 DEFAULT_PROMPT）
+        agent_client: Agent 客户端实例（用于获取 RAG 增强的 IG/ID）
     """
     def process_single_row(index, row, image_base_path):
         try:
@@ -216,11 +218,28 @@ def create_process_row_func(api_call_func, include_metrics=False):
             }
 
             if include_metrics:
-                formatted_prompt = prompt_config.DEFAULT_PROMPT.format(question=question_text)
-                ig_value, id_value = compute_information_metrics(question_text, formatted_prompt)
-                result["IG"] = ig_value
-                result["ID"] = id_value
-                retrieval_metrics.add_ig_id(ig_value, id_value)
+                # 优先从 agent_client 获取 RAG 增强的 IG/ID
+                if agent_client and hasattr(agent_client, 'get_last_ig_id'):
+                    ig_value, id_value = agent_client.get_last_ig_id()
+                    if ig_value is not None and id_value is not None:
+                        result["IG"] = ig_value
+                        result["ID"] = id_value
+                    else:
+                        # 降级：使用指定的 prompt_template 或 DEFAULT_PROMPT
+                        template = prompt_template or prompt_config.DEFAULT_PROMPT
+                        formatted_prompt = template.format(question=question_text)
+                        ig_value, id_value = compute_information_metrics(question_text, formatted_prompt)
+                        result["IG"] = ig_value
+                        result["ID"] = id_value
+                    retrieval_metrics.add_ig_id(ig_value, id_value)
+                else:
+                    # 非 Agent 模型：使用指定模板或 DEFAULT_PROMPT
+                    template = prompt_template or prompt_config.DEFAULT_PROMPT
+                    formatted_prompt = template.format(question=question_text)
+                    ig_value, id_value = compute_information_metrics(question_text, formatted_prompt)
+                    result["IG"] = ig_value
+                    result["ID"] = id_value
+                    retrieval_metrics.add_ig_id(ig_value, id_value)
 
             return result
 

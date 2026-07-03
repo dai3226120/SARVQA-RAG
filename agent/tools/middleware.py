@@ -85,8 +85,7 @@ def calculate_hit_rate(tool_name: str = None) -> Dict[str, float]:
     try:
         from rag.services.membership_service import MembershipHybridService
         
-        service = MembershipHybridService()
-        stats = service.get_membership_stats()
+        stats = MembershipHybridService.get_membership_stats_static()
         hit_rates["rag_rscsv_membership"] = stats["hit_rate"]
         logger.info(f"隶属度命中率统计: 总调用={stats['total_calls']}, 命中={stats['hit_calls']}, 命中率={stats['hit_rate']:.4f}")
     except Exception as e:

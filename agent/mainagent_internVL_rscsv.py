@@ -99,6 +99,9 @@ class MainAgent:
 
         rag_context = "\n\n".join(rag_parts)
 
+        # 保存到实例属性供 get_rag_output() 使用
+        self._last_rag_context = rag_context
+
         # ----- 第二步：用 internvl 多模态模型生成最终答案 -----
         system_text = load_system_prompts()
         if rag_context:
@@ -124,6 +127,10 @@ class MainAgent:
         except Exception as e:
             logger.error(f"[MainAgent] 视觉模型生成失败: {e}", exc_info=True)
             yield f"视觉模型出错：{str(e)}"
+
+    def get_rag_output(self) -> str:
+        """获取最后一次 RAG 工具调用的累积输出文本"""
+        return getattr(self, '_last_rag_context', '')
 
 if __name__=="__main__":
     agent = MainAgent()

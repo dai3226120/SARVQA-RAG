@@ -22,6 +22,8 @@ SUMMARY_COLUMNS = [
     # 结果评估统计
     "评估-总行数", "评估-成功行数", "评估-成功率(%)",
     "评估-语义匹配率(%)", "评估-平均IG", "评估-平均ID",
+    # 预测文本统计
+    "平均 Token 长度(字符数)",
     # 各指标全量样本平均值
     "指标-cosine", "指标-ROUGEL", "指标-BLEU1", "指标-BLEU2", "指标-BLEU3", "指标-BLEU4", "指标-METEOR",
     # 85% 置信度统计（样本数）
@@ -77,6 +79,8 @@ def update_excel_summary(timestamp: str, model_type: str, file_tag: str,
         "评估-语义匹配率(%)": _r(bench_stats.get("match_rate", 0) * 100, 2),
         "评估-平均IG": _r(bench_stats.get("avg_ig", 0), 4),
         "评估-平均ID": _r(bench_stats.get("avg_id", 0), 4),
+        # 预测文本统计
+        "平均 Token 长度(字符数)": _r(analysis_stats.get("avg_pred_tokens", 0), 2),
         # 各指标全量样本平均值
         "指标-cosine": _r(metrics_avg.get("cosine", 0), 6),
         "指标-ROUGEL": _r(metrics_avg.get("ROUGEL", 0), 6),

@@ -167,9 +167,19 @@ class MainAgentClient:
 
             safe_print(f"[OK] Agent 调用成功 [{self.call_count}] | 耗时: {call_latency:.2f}秒 | 检索耗时: {retrieval_latency:.4f}秒")
 
-            ig_value, id_value = compute_information_metrics(question, formatted_prompt)
+            # 获取 RAG 检索结果，与 AGENT_PROMPT 拼接后计算 IG/ID
+            rag_output = self.agent.get_rag_output() if hasattr(self.agent, 'get_rag_output') else ''
+            if rag_output:
+                full_prompt = formatted_prompt + "\n\n" + rag_output
+            else:
+                full_prompt = formatted_prompt
+            ig_value, id_value = compute_information_metrics(question, full_prompt)
             retrieval_metrics.add_ig_id(ig_value, id_value)
             retrieval_metrics.update_from_response(full_response)
+
+            # 保存到线程本地变量，供 predictor 获取
+            self._thread_local.last_ig = ig_value
+            self._thread_local.last_id = id_value
 
             filtered_answer = self._filter_tool_logs(full_response)
             return filtered_answer
@@ -287,6 +297,13 @@ class MainAgentClient:
                 "avg_latency": self._tool_latency_tracker_class.get_global_avg_latency()
             }
         return {"total_latency": 0.0, "call_count": 0, "avg_latency": 0.0}
+
+    def get_last_ig_id(self):
+        """获取当前线程最后一次调用的 IG/ID（由 agent RAG 输出计算）"""
+        return (
+            getattr(self._thread_local, 'last_ig', None),
+            getattr(self._thread_local, 'last_id', None)
+        )
 
     def reset_retrieval_latency_stats(self):
         """重置全局检索耗时统计"""

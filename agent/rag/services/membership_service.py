@@ -7,7 +7,6 @@ from rag.base.retriever import BaseRetriever
 from rag.stores.slice_store import SliceStore
 from rag.builders.slice_builder import SliceBuilder
 from rag.services.knowledge_service import KnowledgeRagService
-from rag.services.stats import HitRateTracker
 from rag.membership.cache_system import SemanticCacheSystem
 from rag.core.config import rag_config
 from utils.logger_handler import logger
@@ -21,6 +20,10 @@ class MembershipHybridService(BaseRetriever):
       阶段 1: 隶属度计算（日志缓存 + 阈值校验）
       阶段 2: 隶属度不达标时，降级为基础切片检索
     """
+
+    # ── 类级共享统计（所有实例共享，兼容旧 RscsvService 接口）──
+    _total_calls: int = 0
+    _hit_calls: int = 0
 
     def __init__(self):
         # 1. 基础构建器与切片集合
@@ -39,46 +42,40 @@ class MembershipHybridService(BaseRetriever):
         self._slice_k = rag_config.slice_k
         self._membership_k = rag_config.membership_k
 
-        # 5. 命中率追踪器
-        self._stats = HitRateTracker()
-
-    @property
-    def stats(self) -> HitRateTracker:
-        """获取命中率统计追踪器"""
-        return self._stats
+        # 5. RAG 知识库上下文开关（通过 chroma.yml → retrieval.enable_rag_context 控制）
+        self._enable_rag_context = rag_config.enable_rag_context
 
     def get_membership_stats(self) -> dict:
-        """获取隶属度统计信息（兼容旧接口）"""
-        return self._stats.get_stats()
+        """获取隶属度统计信息（委托到类级共享记录）"""
+        hit_rate = (
+            MembershipHybridService._hit_calls / MembershipHybridService._total_calls
+            if MembershipHybridService._total_calls > 0
+            else 0.0
+        )
+        return {
+            "total_calls": MembershipHybridService._total_calls,
+            "hit_calls": MembershipHybridService._hit_calls,
+            "hit_rate": hit_rate,
+        }
 
     @classmethod
-    def get_membership_stats_static(cls):
-        """
-        静态方法：获取隶属度统计信息
-        注意：重构后建议使用实例方法 get_membership_stats()
-        保留此方法仅为兼容 middleware/benchmark 的旧调用方式
-        """
-        logger.warning(
-            "[MembershipHybridService] get_membership_stats_static() 已弃用，"
-            "请通过服务实例调用 get_membership_stats()"
-        )
-        return {"total_calls": 0, "hit_calls": 0, "hit_rate": 0.0}
+    def get_membership_stats_static(cls) -> dict:
+        """静态方法：获取隶属度统计信息（类级共享，所有实例共享同一份记录）"""
+        hit_rate = cls._hit_calls / cls._total_calls if cls._total_calls > 0 else 0.0
+        return {"total_calls": cls._total_calls, "hit_calls": cls._hit_calls, "hit_rate": hit_rate}
 
     @classmethod
     def get_membership_hit_rate_static(cls) -> float:
-        """静态方法：获取隶属度命中率（兼容旧接口）"""
-        logger.warning(
-            "[MembershipHybridService] get_membership_hit_rate_static() 已弃用"
-        )
-        return 0.0
+        """静态方法：获取隶属度命中率"""
+        if cls._total_calls == 0:
+            return 0.0
+        return cls._hit_calls / cls._total_calls
 
     @classmethod
     def reset_membership_stats(cls):
-        """重置隶属度统计数据（兼容旧接口）"""
-        logger.warning(
-            "[MembershipHybridService] reset_membership_stats() 已弃用，"
-            "请通过服务实例的 stats.reset() 调用"
-        )
+        """重置隶属度统计数据（类级共享）"""
+        cls._total_calls = 0
+        cls._hit_calls = 0
 
     def hybrid_retrieve(
         self,
@@ -107,14 +104,14 @@ class MembershipHybridService(BaseRetriever):
         fit_threshold = fit_threshold or self._fit_threshold
 
         # ==========================================
-        # 阶段 0: RAG 向量检索
+        # 阶段 0: RAG 向量检索（通过 chroma.yml → retrieval.enable_rag_context 控制）
         # ==========================================
-        rag_context = self._retrieve_rag_context(query)
+        rag_context = self._knowledge_service.retrieve_context(query) if self._enable_rag_context else ""
 
         # ==========================================
         # 阶段 1: 隶属度计算（缓存拦截与校验）
         # ==========================================
-        self._stats.record_call()
+        MembershipHybridService._total_calls += 1
         membership_result = self._retrieve_by_membership(
             query, membership_k, fit_threshold, top_p
         )
@@ -140,22 +137,6 @@ class MembershipHybridService(BaseRetriever):
             top_p=self._top_p,
             fit_threshold=self._fit_threshold,
         )
-
-    # ── 私有辅助方法 ──
-
-    def _retrieve_rag_context(self, query: str) -> str:
-        """阶段 0: RAG 向量检索"""
-        try:
-            context_docs = self._knowledge_service.retriever_docs(query)
-            rag_context_parts = []
-            for idx, doc in enumerate(context_docs, 1):
-                rag_context_parts.append(f"【参考资料{idx}】:{doc.page_content}")
-            rag_context = "\n".join(rag_context_parts)
-            logger.info(f"【RAG检索】已完成向量检索，共获取{len(context_docs)}条参考资料")
-            return rag_context
-        except Exception as e:
-            logger.error(f"RAG检索过程发生异常，跳过RAG检索: {str(e)}")
-            return ""
 
     def _retrieve_by_membership(
         self, query: str, membership_k: int, fit_threshold: float, top_p: int
@@ -191,7 +172,7 @@ class MembershipHybridService(BaseRetriever):
                 logger.info(f" 切片库实际返回了 {len(documents)} 条文档内容")
 
                 if documents:
-                    self._stats.record_call(is_hit=True)
+                    MembershipHybridService._hit_calls += 1
 
                     # 按隶属度得分排序
                     doc_with_membership = []

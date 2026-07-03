@@ -9,6 +9,7 @@ import threading
 from rag.base.retriever import BaseRetriever
 from rag.stores.slice_store import SliceStore
 from rag.builders.slice_builder import SliceBuilder
+from rag.services.knowledge_service import KnowledgeRagService
 from rag.core.config import rag_config
 from utils.logger_handler import logger
 
@@ -26,8 +27,10 @@ class SliceRetrievalService(BaseRetriever):
     def __init__(self):
         self._builder = SliceBuilder()
         self._store = self._builder.store
+        self._knowledge_service = KnowledgeRagService()
         self._slice_k = rag_config.slice_k
         self._top_p = rag_config.top_p
+        self._enable_rag_context = rag_config.enable_rag_context
 
     def hybrid_retrieve(self, query: str, slice_k: int = None, top_p: int = None) -> str:
         """
@@ -43,6 +46,11 @@ class SliceRetrievalService(BaseRetriever):
         """
         slice_k = slice_k or self._slice_k
         top_p = top_p or self._top_p
+
+        # ==========================================
+        # 阶段 0: RAG 向量检索（通过 chroma.yml → retrieval.enable_rag_context 控制）
+        # ==========================================
+        rag_context = self._knowledge_service.retrieve_context(query) if self._enable_rag_context else ""
 
         slice_results = self._store.similarity_search_with_scores(query, k=slice_k)
         if slice_results:
@@ -83,13 +91,21 @@ class SliceRetrievalService(BaseRetriever):
                 ]
             )
             return (
+                f"【RAG检索参考】\n{rag_context}\n\n==============================\n\n"
+                f"【匹配基础切片】(共检索{slice_k}条，"
+                f"按相似度排序后保留{len(top_results)}条)  \n{content}\n"
+                f"<!-- SLICE_IDS: {slice_ids_str} -->"
+            ) if rag_context else (
                 f"【匹配基础切片】(共检索{slice_k}条，"
                 f"按相似度排序后保留{len(top_results)}条)  \n{content}\n"
                 f"<!-- SLICE_IDS: {slice_ids_str} -->"
             )
 
         SliceRetrievalService._thread_local.slice_ids = []
-        return "未检索到相关遥感问答参考资料。\n<!-- SLICE_IDS: -->"
+        no_result = "未检索到相关遥感问答参考资料。\n<!-- SLICE_IDS: -->"
+        if rag_context:
+            return f"【RAG检索参考】\n{rag_context}\n\n==============================\n\n{no_result}"
+        return no_result
 
     def retrieve(self, query: str) -> str:
         """实现 BaseRetriever 接口"""

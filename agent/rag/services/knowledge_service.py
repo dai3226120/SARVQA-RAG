@@ -49,3 +49,27 @@ class KnowledgeRagService(BaseRetriever):
     def retrieve(self, query: str) -> str:
         """实现 BaseRetriever 接口"""
         return self.rag_summarize(query)
+
+    def retrieve_context(self, query: str) -> str:
+        """
+        仅执行 RAG 向量检索并格式化为上下文字符串（不做 LLM 总结）
+        供 membership_service / slice_service 的阶段 0 复用
+
+        Args:
+            query: 查询文本
+
+        Returns:
+            格式化的参考资料字符串；异常时返回空字符串
+        """
+        try:
+            context_docs = self.retriever_docs(query)
+            parts = []
+            for idx, doc in enumerate(context_docs, 1):
+                parts.append(f"【参考资料{idx}】:{doc.page_content}")
+            from utils.logger_handler import logger
+            logger.info(f"【RAG检索】已完成向量检索，共获取{len(context_docs)}条参考资料")
+            return "\n".join(parts)
+        except Exception as e:
+            from utils.logger_handler import logger
+            logger.error(f"RAG检索过程发生异常，跳过RAG检索: {str(e)}")
+            return ""
