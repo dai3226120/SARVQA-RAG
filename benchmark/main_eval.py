@@ -42,6 +42,7 @@ from models import (
     internvl_agent_client,
     doubao_agent_rscsv_client,
     internvl_agent_rscsv_client,
+    qwen37_plus_client,
 )
 from utils.print_utils import print_separator
 
@@ -57,12 +58,14 @@ from utils.print_utils import print_separator
 #     - agent-text-internVL_rscsv: 文本InternVL模型（RSCSV）
 
 # MODEL_KEY = "doubao-seed"
-MODEL_KEY = "agent-text-doubao-seed"
+# MODEL_KEY = "agent-text-doubao-seed"
 # MODEL_KEY = "agent-text-doubao-seed_rscsv"
 
 # MODEL_KEY = "internVL"
 # MODEL_KEY = "agent-text-internVL"
 # MODEL_KEY = "agent-text-internVL_rscsv"
+
+MODEL_KEY = "qwen37-plus"
 
 
 
@@ -109,6 +112,13 @@ _MODEL_REGISTRY = {
         "api_call": internvl_agent_rscsv_client.call,
         "is_agent": True,
     },
+    "qwen37-plus": {
+        "model_type": cfg.ModelType.QWEN37_PLUS,
+        "file_tag": cfg.get_file_tag(cfg.ModelType.QWEN37_PLUS),
+        "client": qwen37_plus_client,
+        "api_call": qwen37_plus_client.call,
+        "is_agent": False,
+    },
     
 }
 
@@ -117,9 +127,9 @@ DATASET_TAG = "val"
 IMAGE_BASE_PATH = cfg.path_config.IMAGE_BASE_PATH
 
 # ====================== 数据处理参数（可在此处直接修改）======================
-MAX_PROCESS_ROWS = 40
+MAX_PROCESS_ROWS = 5000
 START_ROW = 0
-MAX_WORKERS = 20
+MAX_WORKERS = 100
 BATCH_SAVE_THRESHOLD = 300
 
 # ====================== 分析参数 ======================

@@ -25,3 +25,7 @@ internvl_api_key: "vllm-dummy-api-key"
 internvl_temperature: 0.2
 internvl_timeout: 30
 internvl_max_tokens: 8192
+
+# ====================== Qwen3.7-Plus 配置 ======================
+qwen37_plus_model_name: qwen3.7-plus
+qwen37_plus_api_endpoint: "https://llm-dap1vggtvuse02vt.cn-beijing.maas.aliyuncs.com/api/v1"

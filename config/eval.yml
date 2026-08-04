@@ -35,6 +35,7 @@ model_types:
   internvl: "internvl"
   agent_doubao: "agent-doubao"
   agent_internvl: "agent-internvl"
+  qwen37_plus: "qwen37-plus"
 
 # ---- 模型标签映射 ----
 file_tags:
@@ -42,3 +43,4 @@ file_tags:
   internvl: "internvl3_5-8b"
   agent-doubao: "agent-text-doubao-seed-2-0-mini"
   agent-internvl: "agent-text-internVL3_5-8b"
+  qwen37-plus: "qwen37-plus"

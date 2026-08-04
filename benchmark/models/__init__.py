@@ -6,10 +6,12 @@ models 模块
 from .doubao_seed import DoubaoAPIClient
 from .internvl import InternVLAPIClient
 from .main_agent import MainAgentClient
+from .qwen37_plus import Qwen37PlusAPIClient
 
 # 非 Agent 全局实例
 doubao_client = DoubaoAPIClient()
 internvl_client = InternVLAPIClient()
+qwen37_plus_client = Qwen37PlusAPIClient()
 
 # Agent 全局实例
 doubao_agent_client = MainAgentClient("mainagent")
@@ -38,3 +40,8 @@ def call_doubao_agent(image_path, question, prompt_template=None):
 def call_internvl_agent(image_path, question, prompt_template=None):
     """便捷函数：调用 InternVL Agent"""
     return internvl_agent_client.call(image_path, question, prompt_template)
+
+
+def call_qwen37_plus(image_path, question, prompt_template=None):
+    """便捷函数：调用 Qwen3.7-Plus API"""
+    return qwen37_plus_client.call(image_path, question, prompt_template)

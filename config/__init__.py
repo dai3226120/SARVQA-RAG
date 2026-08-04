@@ -76,6 +76,7 @@ class ModelType:
     INTERNVL = eval_conf['model_types']['internvl']
     AGENT_DOUBAO = eval_conf['model_types']['agent_doubao']
     AGENT_INTERNVL = eval_conf['model_types']['agent_internvl']
+    QWEN37_PLUS = eval_conf['model_types']['qwen37_plus']
 
 
 def get_file_tag(model_type: str) -> str:
