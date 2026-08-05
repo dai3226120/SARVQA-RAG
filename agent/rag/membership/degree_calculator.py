@@ -40,6 +40,8 @@ class MembershipCalculator:
         k: int = None,
         fit_threshold: float = None,
         top_p: int = None,
+        w1: float = None,
+        w2: float = None,
     ) -> dict:
         """
         计算新问题与日志中相关内容的隶属度
@@ -49,6 +51,8 @@ class MembershipCalculator:
             k: 检索相关日志条目的数量
             fit_threshold: 隶属度阈值
             top_p: 最多返回的合格隶属度数量
+            w1: 相似度权重（运行时透传，优先于构造默认）
+            w2: 正确性分数权重（运行时透传，优先于构造默认）
 
         Returns:
             dict: 包含 membership_score / max_membership / top_logs /
@@ -58,8 +62,9 @@ class MembershipCalculator:
         fit_threshold = fit_threshold or rag_config.fit_threshold
         top_p = top_p or rag_config.top_p
 
-        # 验证权重和为 1
-        w1, w2 = self._w1, self._w2
+        # 解析权重：显式传入 > 构造时默认 > 配置默认；和不为 1 自动归一化
+        w1 = w1 if w1 is not None else self._w1
+        w2 = w2 if w2 is not None else self._w2
         if abs(w1 + w2 - 1.0) > 1e-6:
             logger.warning("权重和不为1，进行自动归一化: w1=%.2f, w2=%.2f", w1, w2)
             total = w1 + w2
