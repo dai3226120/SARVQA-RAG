@@ -7,13 +7,12 @@
 import io
 import time
 from dataclasses import asdict
-from datetime import datetime
 
 import streamlit as st
 from PIL import Image
 
 from mainagent import MainAgent  # noqa: F401  # 确保 agent 目录在 sys.path
-from agent_registry import MODEL_REGISTRY, DEFAULT_MODEL_KEY, DEFAULT_TEXT_MODEL_KEY, build_agent
+from agent_registry import MODEL_REGISTRY, DEFAULT_MODEL_KEY, build_agent
 from tools.agent_tools import rag_rscsv_service
 from rag.services.membership_service import MembershipHybridService
 from tools.middleware import ToolLatencyTracker
@@ -274,7 +273,7 @@ def render_turn(turn: dict, idx: int):
 def render_main():
     st.title("🛰️ SAR遥感问答系统")
     session = get_active_session()
-    if not st.session_state["sessions"]:
+    if session is None or not st.session_state["sessions"]:
         st.info(
             "上传一张 SAR 遥感图并提问，系统将展示检索过程（侧边栏）与最终答案（主区）。\n\n"
             "支持追问同一图片的多个问题；换图或点「新建会话」开启新会话。"
@@ -321,6 +320,7 @@ def render_bottom_bar() -> str | None:
                 "type": uploaded_image.type or "image/png",
                 "name": uploaded_image.name,
             }
+            st.session_state["image_uploader"] = None  # 清 widget，防止 rerun 后再次触发
             st.rerun()
 
         st.markdown('</div>', unsafe_allow_html=True)
@@ -367,7 +367,7 @@ def handle_prompt(prompt: str):
     chunks = []
     start = time.time()
     try:
-        with st.status("思考中... 调用工具 rag_rscsv 检索", expanded=False) as status:
+        with st.status("思考中... 调用工具 rag_rscsv 检索", expanded=True) as status:
             status.write("模型推理中...")
             placeholder = st.chat_message("assistant").empty()
             for chunk in agent.execute_stream(prompt, image_file=session_image_file(session), history=history):
@@ -377,7 +377,12 @@ def handle_prompt(prompt: str):
             status.update(label="完成", state="complete")
     except Exception as e:
         turn["error"] = str(e)
+        status.update(label="出错", state="error")
         st.error(f"执行出错：{e}")
+    finally:
+        # 无论成功与否，都恢复运行期参数并清空待发送图片
+        rag_rscsv_service.clear_runtime_params()
+        st.session_state["staged_image"] = None
     turn["latency_ms"] = (time.time() - start) * 1000
 
     # 抓取本次检索过程（按 query 匹配，防上一轮残留）；转为 dict 供 UI 渲染
@@ -386,8 +391,6 @@ def handle_prompt(prompt: str):
         asdict(trace) if (trace is not None and trace.query == prompt) else None
     )
 
-    rag_rscsv_service.clear_runtime_params()
-    st.session_state["staged_image"] = None
     st.rerun()
 
 
