@@ -73,8 +73,8 @@ MODEL_KEY = "qwen37-plus"
 #   "full"   : 预测 + 评估 + 分析（完整流水线，结束后更新 Excel 统计表）
 #   "eval"   : 评估 + 分析（跳过预测，需引用之前的预测结果）
 #   "analyze": 仅分析（跳过预测与评估，需引用之前的评估结果）
-PIPELINE_MODE = "full"
-RESULT_TIMESTAMP = ""  # eval/analyze 必填：引用 RESULT_DIR/<模型类型>/<文件标签>/<时间戳>/ 下的历史结果
+PIPELINE_MODE = "analyze"
+RESULT_TIMESTAMP = "20260715_224359"  # eval/analyze 必填：引用 RESULT_DIR/<模型类型>/<文件标签>/<时间戳>/ 下的历史结果
 
 _PIPELINE_MODES = ("full", "eval", "analyze")
 
