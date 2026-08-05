@@ -5,13 +5,24 @@
 底部固定栏：图片上传（预览+清除）+ 提问输入
 """
 import io
+import os
+import sys
 import time
 from dataclasses import asdict
+from pathlib import Path
 
 import streamlit as st
 from PIL import Image
 
-from mainagent import MainAgent  # noqa: F401  # 确保 agent 目录在 sys.path
+# streamlit run 时只有脚本目录（agent/）会自动进 sys.path，项目根目录不会；
+# mainagent 等模块在第 3 行就 import utils.*，须在任何项目内导入前注入路径
+_current_file = Path(__file__).absolute()
+_agent_dir = _current_file.parent
+_project_root = _agent_dir.parent
+for _p in (_project_root, _agent_dir):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+
 from agent_registry import MODEL_REGISTRY, DEFAULT_MODEL_KEY, build_agent
 from tools.agent_tools import rag_rscsv_service
 from rag.services.membership_service import MembershipHybridService

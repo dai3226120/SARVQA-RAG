@@ -1,13 +1,13 @@
 import os
 import sys
-from utils.path_tool import get_project_root
 
+# 路径注入必须早于任何项目内 import：utils/tools/rag/model 都在项目根目录，
+# 而 streamlit run / python agent/mainagent.py 都只会把 agent 目录放进 sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
-if current_dir not in sys.path:
-    sys.path.insert(0, current_dir)
-root_dir = get_project_root()
-if root_dir not in sys.path:
-    sys.path.insert(0, root_dir)
+root_dir = os.path.dirname(current_dir)  # 项目根目录（agent 的父目录）
+for p in (current_dir, root_dir):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
 
 import base64
 # 导入LangChain 相关模块
