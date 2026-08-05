@@ -59,7 +59,7 @@
 | `agent/rag/services/membership_service.py` | 新增 `RetrievalTrace` dataclass；`hybrid_retrieve`/`retrieve` 增加 `w1/w2` 参数并记录各阶段明细+耗时；`get_last_trace()` |
 | `agent/rag/membership/degree_calculator.py` | `calculate()` 透传 `w1/w2`（目前只能构造时定） |
 | `agent/mainagent.py` | `MainAgent.__init__` 接受 `model` 参数（重建 agent 图，不重建 Chroma 存储）；`execute_stream` 接受历史消息列表（多轮）；暴露 `get_last_trace()` |
-| `agent/mainagent_internVL.py` | 同样参数化 `vision_model`（两步式已存在，只需参数化） |
+| `agent/mainagent_internVL.py` | 同样参数化 `vision_model`（两步式已存在，只需参数化）；`execute_stream` 同样支持历史消息（多轮追问） |
 | `model/factory.py` | 接入 qwen3.7-plus（model.yml 已有配置） |
 | `agent/agent_registry.py`（新增） | 模型 key → 代理类/模型实例/是否支持图像 的映射 |
 | `agent/mainapp.py` | 整体重写 UI（侧边栏 + 主区 + 会话管理） |
