@@ -218,12 +218,16 @@ Expected: 校验通过（引用目录与文件均存在），但 Task 2 尚未�
 
 - [ ] **Step 7: 还原配置并提交**
 
+⚠️ 此时实现尚未提交，**切勿使用 `git checkout -- benchmark/main_eval.py` 还原**（会把整个任务的未提交改动一并还原）。用反向 sed 还原两个常量：
+
 ```bash
-git checkout -- benchmark/main_eval.py
+sed -i 's/^PIPELINE_MODE = "eval"/PIPELINE_MODE = "full"/' benchmark/main_eval.py
+sed -i 's/^RESULT_TIMESTAMP = "20260715_224359"/RESULT_TIMESTAMP = ""/' benchmark/main_eval.py
+grep -n 'PIPELINE_MODE\|RESULT_TIMESTAMP' benchmark/main_eval.py
 git add benchmark/main_eval.py docs/superpowers/plans/2026-08-05-main-eval-pipeline-modes.md
 git commit -m "feat(benchmark): main_eval 支持流水线模式配置与历史结果引用校验"
 ```
-（提交前确认 `grep -n 'PIPELINE_MODE' benchmark/main_eval.py` 显示 `PIPELINE_MODE = "full"`、`RESULT_TIMESTAMP = ""` 为还原后默认值。）
+Expected: `grep` 显示 `PIPELINE_MODE = "full"`、`RESULT_TIMESTAMP = ""`（还原后默认值），提交成功。
 
 ### Task 2: main() 增加 eval / analyze 分支
 
@@ -322,8 +326,11 @@ ls -la --time-style=full-iso "benchmark/result/eval_summary.xlsx" | awk '{print 
 
 - [ ] **Step 6: 还原配置并提交**
 
+⚠️ 此时实现尚未提交，**切勿使用 `git checkout -- benchmark/main_eval.py` 还原**（会把整个任务的未提交改动一并还原）。用反向 sed 还原两个常量：
+
 ```bash
-git checkout -- benchmark/main_eval.py
+sed -i 's/^PIPELINE_MODE = "eval"/PIPELINE_MODE = "full"/' benchmark/main_eval.py
+sed -i 's/^RESULT_TIMESTAMP = "20260715_224359"/RESULT_TIMESTAMP = ""/' benchmark/main_eval.py
 grep -n 'PIPELINE_MODE\|RESULT_TIMESTAMP' benchmark/main_eval.py
 git add benchmark/main_eval.py
 git commit -m "feat(benchmark): main_eval 支持评估+分析 / 仅分析模式，跳过预测时引用历史结果"
