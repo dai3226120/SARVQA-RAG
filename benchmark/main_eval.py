@@ -485,6 +485,46 @@ def main():
             print("⚠️ 评估流程结束（结果分析失败）")
             print("=" * 80)
 
+    elif mode == "eval":
+        # ---- 评估 + 分析（跳过预测，不更新 Excel）----
+        print("\n" + "=" * 80)
+        print("🚀 开始执行 评估→分析 流程（跳过预测）")
+        print("=" * 80)
+
+        bench_result = run_benchmark(file_tag, output_dir, ref_file)
+        if not bench_result["success"]:
+            print("❌ 指标评估失败，终止流程")
+            return
+        print("\n" + "=" * 80)
+
+        analysis_result = run_analysis(file_tag, output_dir, bench_result.get("output_file"))
+
+        if analysis_result["success"]:
+            print("\n" + "=" * 80)
+            print("🎉 评估→分析流程结束！")
+            print("=" * 80)
+        else:
+            print("\n" + "=" * 80)
+            print("⚠️ 评估→分析流程结束（结果分析失败）")
+            print("=" * 80)
+
+    else:  # analyze
+        # ---- 仅分析（跳过预测与评估，不更新 Excel）----
+        print("\n" + "=" * 80)
+        print("🚀 开始执行 仅分析 流程（跳过预测与评估）")
+        print("=" * 80)
+
+        analysis_result = run_analysis(file_tag, output_dir, ref_file)
+
+        if analysis_result["success"]:
+            print("\n" + "=" * 80)
+            print("🎉 仅分析流程结束！")
+            print("=" * 80)
+        else:
+            print("\n" + "=" * 80)
+            print("⚠️ 仅分析流程结束（结果分析失败）")
+            print("=" * 80)
+
 
 if __name__ == "__main__":
     main()
