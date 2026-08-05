@@ -68,6 +68,16 @@ from utils.print_utils import print_separator
 MODEL_KEY = "qwen37-plus"
 
 
+# ====================== 流水线模式配置 ======================
+# 可选模式:
+#   "full"   : 预测 + 评估 + 分析（完整流水线，结束后更新 Excel 统计表）
+#   "eval"   : 评估 + 分析（跳过预测，需引用之前的预测结果）
+#   "analyze": 仅分析（跳过预测与评估，需引用之前的评估结果）
+PIPELINE_MODE = "full"
+RESULT_TIMESTAMP = ""  # eval/analyze 必填：引用 RESULT_DIR/<模型类型>/<文件标签>/<时间戳>/ 下的历史结果
+
+_PIPELINE_MODES = ("full", "eval", "analyze")
+
 
 _MODEL_REGISTRY = {
     "doubao-seed": {
@@ -135,6 +145,65 @@ BATCH_SAVE_THRESHOLD = 300
 # ====================== 分析参数 ======================
 CONFIDENCE_THRESHOLD = cfg.analysis_config.CONFIDENCE_THRESHOLD
 TARGET_METRICS = cfg.analysis_config.TARGET_METRICS
+
+
+# ====================== 流水线模式解析与校验 ======================
+def _print_available_timestamps(base_dir: str):
+    """打印 base_dir 下可用的历史运行时间戳目录（供用户修正 RESULT_TIMESTAMP）"""
+    if not os.path.isdir(base_dir):
+        print(f"   目录不存在: {base_dir}")
+        return
+    timestamps = sorted(
+        (d for d in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, d))),
+        reverse=True,
+    )
+    if timestamps:
+        print(f"   可用历史时间戳: {timestamps}")
+    else:
+        print(f"   目录 {base_dir} 下没有历史运行目录")
+
+
+def resolve_pipeline_mode(model_type: str, file_tag: str):
+    """校验并解析流水线模式配置。
+
+    返回 (mode, ref_file):
+        - mode 为 "full" / "eval" / "analyze"
+        - ref_file 为 eval/analyze 模式下引用的历史结果文件，full 模式下为 None
+    校验失败时打印错误信息并返回 None（调用方应终止流程）。
+    """
+    if PIPELINE_MODE not in _PIPELINE_MODES:
+        print(f"❌ 无效的 PIPELINE_MODE: {PIPELINE_MODE}（可选: {' / '.join(_PIPELINE_MODES)}）")
+        return None
+
+    if PIPELINE_MODE == "full":
+        return ("full", None)
+
+    # eval / analyze 模式：解析引用的历史结果
+    base_dir = os.path.join(cfg.path_config.RESULT_DIR, model_type, file_tag)
+    if not RESULT_TIMESTAMP:
+        print(f"❌ {PIPELINE_MODE} 模式必须指定 RESULT_TIMESTAMP（引用之前某次运行的结果）")
+        _print_available_timestamps(base_dir)
+        return None
+
+    ref_dir = os.path.join(base_dir, RESULT_TIMESTAMP)
+    if not os.path.isdir(ref_dir):
+        print(f"❌ 引用目录不存在: {ref_dir}")
+        _print_available_timestamps(base_dir)
+        return None
+
+    if PIPELINE_MODE == "eval":
+        ref_file = os.path.join(ref_dir, f"{file_tag}_{DATASET_TAG}_predicted_question_latest.csv")
+    else:  # analyze
+        ref_file = os.path.join(ref_dir, f"{file_tag}_{DATASET_TAG}_benchmark_latest.csv")
+
+    if not os.path.isfile(ref_file):
+        print(f"❌ 引用文件不存在: {ref_file}")
+        files = os.listdir(ref_dir)
+        if files:
+            print(f"   目录内可用文件: {files}")
+        return None
+
+    return (PIPELINE_MODE, ref_file)
 
 
 # ====================== 步骤 1：模型预测 ======================
@@ -347,12 +416,23 @@ def main():
     model_type = entry["model_type"]
     file_tag = entry["file_tag"]
 
+    # ---- 校验流水线模式（full/eval/analyze）----
+    resolved = resolve_pipeline_mode(model_type, file_tag)
+    if resolved is None:
+        return
+    mode, ref_file = resolved
+
     # ---- 生成统一时间戳和输出目录 ----
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     output_dir = os.path.join(cfg.path_config.RESULT_DIR, model_type, file_tag, timestamp)
     os.makedirs(output_dir, exist_ok=True)
 
     print(f"\n📋 当前配置:")
+    mode_desc = {"full": "预测 + 评估 + 分析", "eval": "评估 + 分析（跳过预测）",
+                 "analyze": "仅分析（跳过预测与评估）"}[mode]
+    print(f"   - 流水线模式: {mode}（{mode_desc}）")
+    if ref_file:
+        print(f"   - 引用历史结果: {ref_file}")
     print(f"   - 模型: {MODEL_KEY}")
     print(f"   - 模型类型: {model_type}")
     print(f"   - 文件标签: {file_tag}")
@@ -366,43 +446,44 @@ def main():
 
     print_separator(char="-")
 
-    # ---- 三步流水线 ----
-    print("\n" + "=" * 80)
-    print("🚀 开始执行完整评估流程")
-    print("=" * 80)
-
-    pred_result = run_prediction(MODEL_KEY, output_dir)
-    if not pred_result["success"]:
-        print("❌ 模型预测失败，终止流程")
-        update_excel_summary(timestamp, model_type, file_tag, output_dir,
-                             pred_result, {"success": False, "stats": {}},
-                             {"success": False, "stats": {}})
-        return
-    print("\n" + "=" * 80)
-
-    bench_result = run_benchmark(file_tag, output_dir, pred_result.get("output_file"))
-    if not bench_result["success"]:
-        print("❌ 指标评估失败，终止流程")
-        update_excel_summary(timestamp, model_type, file_tag, output_dir,
-                             pred_result, bench_result,
-                             {"success": False, "stats": {}})
-        return
-    print("\n" + "=" * 80)
-
-    analysis_result = run_analysis(file_tag, output_dir, bench_result.get("output_file"))
-
-    # ---- 更新 Excel 统计表 ----
-    update_excel_summary(timestamp, model_type, file_tag, output_dir,
-                         pred_result, bench_result, analysis_result)
-
-    if analysis_result["success"]:
+    if mode == "full":
+        # ---- 三步流水线 ----
         print("\n" + "=" * 80)
-        print("🎉 完整评估流程结束！")
+        print("🚀 开始执行完整评估流程")
         print("=" * 80)
-    else:
+
+        pred_result = run_prediction(MODEL_KEY, output_dir)
+        if not pred_result["success"]:
+            print("❌ 模型预测失败，终止流程")
+            update_excel_summary(timestamp, model_type, file_tag, output_dir,
+                                 pred_result, {"success": False, "stats": {}},
+                                 {"success": False, "stats": {}})
+            return
         print("\n" + "=" * 80)
-        print("⚠️ 评估流程结束（结果分析失败）")
-        print("=" * 80)
+
+        bench_result = run_benchmark(file_tag, output_dir, pred_result.get("output_file"))
+        if not bench_result["success"]:
+            print("❌ 指标评估失败，终止流程")
+            update_excel_summary(timestamp, model_type, file_tag, output_dir,
+                                 pred_result, bench_result,
+                                 {"success": False, "stats": {}})
+            return
+        print("\n" + "=" * 80)
+
+        analysis_result = run_analysis(file_tag, output_dir, bench_result.get("output_file"))
+
+        # ---- 更新 Excel 统计表 ----
+        update_excel_summary(timestamp, model_type, file_tag, output_dir,
+                             pred_result, bench_result, analysis_result)
+
+        if analysis_result["success"]:
+            print("\n" + "=" * 80)
+            print("🎉 完整评估流程结束！")
+            print("=" * 80)
+        else:
+            print("\n" + "=" * 80)
+            print("⚠️ 评估流程结束（结果分析失败）")
+            print("=" * 80)
 
 
 if __name__ == "__main__":
