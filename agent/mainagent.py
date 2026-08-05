@@ -80,7 +80,7 @@ class MainAgent:
     def get_last_trace(self):
         """获取最后一次 RAG 检索的过程记录（RetrievalTrace 或 None）"""
         return rag_rscsv_service.get_last_trace()
-        
+
     # 多模态输入版本
     def execute_stream(self, query: str, image_file=None, history=None):
         """流式执行 agent 问答

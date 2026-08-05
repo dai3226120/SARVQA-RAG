@@ -96,6 +96,7 @@ class Qwen37PlusModelFactory(BaseModelFactory):
             base_url=model_conf['qwen37_plus_api_endpoint'],
             temperature=0.7,
             streaming=True,
+            timeout=30,
         )
 
 

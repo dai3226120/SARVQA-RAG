@@ -243,7 +243,10 @@ def render_turn(turn: dict, idx: int):
     """主区：渲染一轮问答（用户消息 → 召回切片 → AI 回复 → 行尾小字）"""
     with st.container(border=True):
         st.markdown(f"**第 {idx} 轮**")
-        if turn["user_image"]:
+        if turn.get("user_render_error"):
+            # 现场渲染失败（如损坏图片），回看时降级为纯文本，跳过图片渲染
+            st.markdown(turn["user_text"])
+        elif turn["user_image"]:
             col1, col2 = st.columns([1, 5])
             col1.image(Image.open(io.BytesIO(turn["user_image"]["bytes"])), width=140,
                        caption=turn["user_image"]["name"])
@@ -297,6 +300,9 @@ def _on_image_upload():
             "type": uploaded.type or "image/png",
             "name": uploaded.name,
         }
+    else:
+        # 用户在 uploader 内移除文件时，同步清除待发送缓存
+        st.session_state["staged_image"] = None
 
 
 def render_bottom_bar() -> str | None:
@@ -365,10 +371,15 @@ def handle_prompt(prompt: str):
     session["turns"].append(turn)
 
     # ── 现场渲染本轮（流式）──
-    st.chat_message("user").markdown(prompt)
-    if turn_image:
-        st.image(Image.open(io.BytesIO(turn_image["bytes"])), width=160,
-                 caption=turn_image["name"])
+    try:
+        st.chat_message("user").markdown(prompt)
+        if turn_image:
+            st.image(Image.open(io.BytesIO(turn_image["bytes"])), width=160,
+                     caption=turn_image["name"])
+    except Exception as e:
+        # 损坏图片等渲染异常不阻断问答流程
+        turn["user_render_error"] = str(e)
+        st.warning(f"用户消息渲染失败（不影响回答）：{e}")
     agent = st.session_state["agent_info"]["agent"]
     chunks = []
     start = time.time()

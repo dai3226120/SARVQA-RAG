@@ -59,7 +59,7 @@ class MembershipCalculator:
                   weighted_slices / qualified_log_count / qualified_memberships
         """
         k = k or rag_config.membership_k
-        fit_threshold = fit_threshold or rag_config.fit_threshold
+        fit_threshold = fit_threshold if fit_threshold is not None else rag_config.fit_threshold
         top_p = top_p or rag_config.top_p
 
         # 解析权重：显式传入 > 构造时默认 > 配置默认；和不为 1 自动归一化
@@ -68,8 +68,12 @@ class MembershipCalculator:
         if abs(w1 + w2 - 1.0) > 1e-6:
             logger.warning("权重和不为1，进行自动归一化: w1=%.2f, w2=%.2f", w1, w2)
             total = w1 + w2
-            w1 = w1 / total
-            w2 = w2 / total
+            if total == 0:
+                logger.warning("权重和为零，回退默认权重 w1=0.5, w2=0.5")
+                w1, w2 = 0.5, 0.5
+            else:
+                w1 = w1 / total
+                w2 = w2 / total
 
         # 1. 在日志库中检索相关条目
         try:

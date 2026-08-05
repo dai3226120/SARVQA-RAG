@@ -142,7 +142,7 @@ class MembershipHybridService(BaseRetriever):
         slice_k = slice_k or self._resolve("slice_k", self._slice_k)
         membership_k = membership_k or self._resolve("membership_k", self._membership_k)
         top_p = top_p or self._resolve("top_p", self._top_p)
-        fit_threshold = fit_threshold or self._resolve("fit_threshold", self._fit_threshold)
+        fit_threshold = fit_threshold if fit_threshold is not None else self._resolve("fit_threshold", self._fit_threshold)
         w1 = w1 if w1 is not None else self._resolve("w1", rag_config.w1)
         w2 = w2 if w2 is not None else self._resolve("w2", rag_config.w2)
 
