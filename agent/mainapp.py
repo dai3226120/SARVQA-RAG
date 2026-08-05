@@ -47,6 +47,17 @@ st.markdown("""
     padding: 10px 20px;
     border-top: 1px solid #e5e7eb;
 }
+/* 侧边栏占满整个视口高度（streamlit 用内联 height:auto 覆盖样式表，需 !important；
+   否则主内容短时侧边栏只占内容高度，下方露出页面背景） */
+[data-testid="stSidebar"] {
+    position: sticky !important;
+    top: 0 !important;
+    height: 100vh !important;
+}
+/* 侧边栏内容底部留白，避免被固定底部栏遮挡 */
+[data-testid="stSidebarContent"] {
+    padding-bottom: 140px;
+}
 /* 隐藏文件上传器默认标签 */
 .stFileUploader > label {
     display: none !important;
