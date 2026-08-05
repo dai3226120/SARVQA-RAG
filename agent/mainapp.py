@@ -288,6 +288,17 @@ def render_main():
 
 
 # ───────────────────────── 底部固定栏 ─────────────────────────
+def _on_image_upload():
+    """file_uploader on_change 回调：在 widget 实例化前把上传暂存为待发送图片"""
+    uploaded = st.session_state.get("image_uploader")
+    if uploaded is not None:
+        st.session_state["staged_image"] = {
+            "bytes": uploaded.getvalue(),
+            "type": uploaded.type or "image/png",
+            "name": uploaded.name,
+        }
+
+
 def render_bottom_bar() -> str | None:
     """渲染底部固定栏，返回用户输入的问题（无输入返回 None）"""
     with st.container():
@@ -308,20 +319,15 @@ def render_bottom_bar() -> str | None:
 
         prompt = st.chat_input("请输入您关于遥感图像的问题...")
 
-        uploaded_image = st.file_uploader(
+        # 上传通过 on_change 回调暂存（回调先于 widget 实例化执行，修改 state 合法；
+        # 且仅值变化时触发，rerun 不会重入，无死循环）
+        st.file_uploader(
             "上传图片",
             type=["png", "jpg", "jpeg", "bmp", "gif", "tif", "tiff"],
             accept_multiple_files=False,
             key="image_uploader",
+            on_change=_on_image_upload,
         )
-        if uploaded_image is not None:
-            st.session_state["staged_image"] = {
-                "bytes": uploaded_image.getvalue(),
-                "type": uploaded_image.type or "image/png",
-                "name": uploaded_image.name,
-            }
-            st.session_state["image_uploader"] = None  # 清 widget，防止 rerun 后再次触发
-            st.rerun()
 
         st.markdown('</div>', unsafe_allow_html=True)
     return prompt
