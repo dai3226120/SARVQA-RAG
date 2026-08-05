@@ -87,6 +87,18 @@ class DoubaoLiteModelFactory(BaseModelFactory):
         )
 
 
+# Qwen3.7 Plus 模型工厂：用于文本问答（阿里云 MaaS，OpenAI 兼容）
+class Qwen37PlusModelFactory(BaseModelFactory):
+    def generate(self) -> Optional[Embeddings | BaseChatModel]:
+        return ChatOpenAI(
+            model_name=model_conf['qwen37_plus_model_name'],
+            api_key=os.environ.get('DASHSCOPE_API_KEY') or model_conf.get('qwen37_plus_api_key', ''),
+            base_url=model_conf['qwen37_plus_api_endpoint'],
+            temperature=0.7,
+            streaming=True,
+        )
+
+
 # 图像识别模型工厂：用于创建InternVL2-8B模型
 class InternVL2ModelFactory(BaseModelFactory):
     def generate(self) -> Optional[Embeddings | BaseChatModel]:
@@ -118,3 +130,4 @@ doubao_seed_20_mini_model = DoubaoSeed20MiniModelFactory().generate()  # 多模�
 internvl2_8b_model = InternVL2ModelFactory().generate()  # 图像识别模型
 internvl3_5_8b_model = InternVL35ModelFactory().generate()  # 图像识别模型
 doubao_1_5_lite_model = DoubaoLiteModelFactory().generate()  # LLM 语义判断模型
+qwen37_plus_model = Qwen37PlusModelFactory().generate()  # Qwen3.7 Plus 文本模型
