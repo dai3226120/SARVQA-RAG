@@ -15,34 +15,52 @@ from langchain.agents import create_agent
 from deepagents import create_deep_agent
 from langchain_community.chat_models import ChatTongyi
 from langchain_core.tools import tool
-from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage, AIMessage
 # 导入项目内的模块
 from model.factory import chat_model, embed_model, huggingface_embed_model, doubao_seed_20_mini_model, internvl2_8b_model, internvl3_5_8b_model
 from utils.prompt_loader import load_system_prompts
-from tools.agent_tools import rag_summarize,get_weather,get_user_location, get_user_id, rag_rscsv, to_openai_tools
+from tools.agent_tools import rag_summarize,get_weather,get_user_location, get_user_id, rag_rscsv, to_openai_tools, rag_rscsv_service
 from tools.middleware import monitor_tool,log_before_model,report_prompt_switch
 from utils.logger_handler import logger
 
 class MainAgent:
-    def __init__(self):
+    def __init__(self, model=None, vision_model=None, tools=None):
+        """两步式 agent：agent 收集 RAG 信息（文本）→ vision_model 多模态回答
 
-        self.tools = [rag_summarize, rag_rscsv]
+        Args:
+            model: 收集 RAG 的 agent 模型（None 时默认 doubao_seed_20_mini_model）
+            vision_model: 最终视觉回答模型（None 时默认 internvl3_5_8b_model）
+        """
+        self.tools = tools if tools is not None else [rag_summarize, rag_rscsv]
 
         self.agent = create_agent(
-            model = doubao_seed_20_mini_model,  # 使用多模态模型
-            # model = chat_model,  # 使用通义千问聊天模型
-            # tools = [get_user_location, get_weather, rag_summarize, rag_rscsv],
-            tools = self.tools,
+            model=model if model is not None else doubao_seed_20_mini_model,
+            tools=self.tools,
             system_prompt=load_system_prompts(),
-            middleware=[log_before_model,monitor_tool]
+            middleware=[log_before_model, monitor_tool]
         )
 
         # 2. internvl 作为多模态视觉最终回答模型
-        self.vision_model = internvl3_5_8b_model
-        # self.vision_model = internvl2_8b_model
+        self.vision_model = vision_model if vision_model is not None else internvl3_5_8b_model
+
+    def _build_agent_messages(self, query: str, history=None) -> list:
+        """构造 agent（文本）输入消息：历史文本 + 当前问题"""
+        messages = []
+        for h in history or []:
+            content = h.get("content", "")
+            if h.get("role") == "user":
+                messages.append(HumanMessage(content=content))
+            else:
+                messages.append(AIMessage(content=content))
+        messages.append(HumanMessage(content=query))
+        return messages
+
+    def get_last_trace(self):
+        """获取最后一次 RAG 检索的过程记录（RetrievalTrace 或 None）"""
+        return rag_rscsv_service.get_last_trace()
         
     # 多模态输入版本
-    def execute_stream(self, query: str, image_file=None):
+    def execute_stream(self, query: str, image_file=None, history=None):
         # 准备最终视觉模型要用的多模态内容（包含图片）
         multi_modal_content = [{"type": "text", "text": query}]
         if image_file is not None:
@@ -63,7 +81,7 @@ class MainAgent:
         # ----- 第一步：用 doubao agent 收集 RAG 信息（仅文本） -----
         try:
             # agent 只收文本，避免浪费视觉推理
-            agent_input = {"messages": [HumanMessage(content=query)]}
+            agent_input = {"messages": self._build_agent_messages(query, history)}
             # 使用 invoke 获取完整消息历史
             result = self.agent.invoke(agent_input)
             messages = result["messages"]
