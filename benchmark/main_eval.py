@@ -419,7 +419,7 @@ def main():
     # ---- 校验流水线模式（full/eval/analyze）----
     resolved = resolve_pipeline_mode(model_type, file_tag)
     if resolved is None:
-        return
+        sys.exit(1)
     mode, ref_file = resolved
 
     # ---- 生成统一时间戳和输出目录 ----
