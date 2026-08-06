@@ -181,4 +181,10 @@ sequenceDiagram
 
 ---
 
+## 关联文档
+
+- [在线遥感问答系统架构设计](./online-qa-architecture.md)
+
+---
+
 *更新时间：2026-08-06*
