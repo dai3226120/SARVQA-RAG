@@ -364,6 +364,41 @@ class LogManager:
             ids=[unique_id],
         )
 
+    def upsert_records_to_vector_db(
+        self,
+        records: list[dict],
+        replaced_keys: list[tuple[str, str]] = None,
+    ) -> dict:
+        """批量 upsert 记录到向量库。
+
+        Args:
+            records: 合并后需入库的全部记录（含新增与替换后的新内容）
+            replaced_keys: 被替换记录的 (图片, 问题) 键列表——先删旧向量再写新向量
+
+        Returns:
+            {"added": int, "deleted": int}
+        """
+        replaced_keys = replaced_keys or []
+        deleted = 0
+        if replaced_keys:
+            old_ids = [
+                generate_log_vector_id(id_, q) for id_, q in replaced_keys
+            ]
+            try:
+                self._logs_collection.delete(ids=old_ids)
+                deleted = len(old_ids)
+            except Exception as e:
+                logger.error("[upsert] 删除旧向量失败: %s", e)
+
+        if not records:
+            return {"added": 0, "deleted": deleted}
+
+        texts, metadatas, ids = self._build_log_texts(pd.DataFrame(records, columns=LOG_COLUMNS))
+        added = self._chroma_mgr.add_texts_in_batches(
+            texts=texts, metadatas=metadatas, ids=ids, desc="批量 upsert 日志"
+        )
+        return {"added": added, "deleted": deleted}
+
     def update_md5(self):
         """更新日志文件的 MD5 记录"""
         try:
