@@ -81,6 +81,10 @@ class RagConfig:
         return get_abs_path(f"{self.data_path}/{self.log_name}")
 
     @property
+    def pending_log_path(self) -> str:
+        return get_abs_path(f"{self.data_path}/pending_records.csv")
+
+    @property
     def error_log_path(self) -> str:
         return get_abs_path(f"{self.data_path}/{self.error_log_name}")
 
