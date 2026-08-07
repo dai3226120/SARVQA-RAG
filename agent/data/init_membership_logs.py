@@ -105,13 +105,16 @@ def main():
     parser.add_argument("--force", action="store_true", help="跳过确认，直接备份并重建")
     args = parser.parse_args()
 
+    # 注意：不能用 force_full_reload=True —— 参数求值先于 run_init 执行，
+    # _init_force_reload 会先用空 DataFrame 截断旧日志，导致 run_init 的备份拿到截断文件。
+    # run_init 内部已自行 reload_to_vector_db 全量重建，force_full_reload 冗余。
     run_init(
         csv_path=args.csv,
         max_rows=args.max_rows,
         evaluator=VlmEvaluator(),
         judge=LlmJudge(),
         slice_store=SliceStore(),
-        log_manager=LogManager(force_full_reload=True),
+        log_manager=LogManager(),
         force=args.force,
     )
 

@@ -74,3 +74,37 @@ def test_run_init_keeps_only_correct(tmp_path, monkeypatch):
     assert set(df["id"]) == {"a.png", "c.png"}
     assert df.iloc[0]["correct"] == 1
     assert "content_of_s1" in df.iloc[0]["retrieved_slices_content"]
+
+
+def test_main_constructs_default_log_manager(monkeypatch):
+    """回归防护：main() 必须用默认模式 LogManager()。
+
+    若用 LogManager(force_full_reload=True)，参数求值先于 run_init 执行，
+    _init_force_reload 会先截断旧日志，导致 run_init 的「备份旧日志」拿到截断文件。
+    """
+    import sys
+
+    init_mod = load_script("init_membership_logs")
+
+    class FakeLM:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    captured = {}
+
+    def fake_run_init(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(init_mod, "LogManager", FakeLM)
+    monkeypatch.setattr(init_mod, "VlmEvaluator", lambda: object())
+    monkeypatch.setattr(init_mod, "LlmJudge", lambda: object())
+    monkeypatch.setattr(init_mod, "SliceStore", lambda: object())
+    monkeypatch.setattr(init_mod, "run_init", fake_run_init)
+    monkeypatch.setattr(sys, "argv", ["init_membership_logs.py", "--force"])
+
+    init_mod.main()
+
+    mgr = captured["log_manager"]
+    assert isinstance(mgr, FakeLM)
+    assert mgr.kwargs.get("force_full_reload") in (None, False)
+    assert captured["force"] is True
