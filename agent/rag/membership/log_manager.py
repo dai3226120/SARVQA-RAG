@@ -246,7 +246,10 @@ class LogManager:
             self._log_df["timestamp"], errors="coerce"
         )
         self._log_df = self._log_df.sort_values("timestamp", ascending=False)
-        self._log_df = self._log_df.drop_duplicates(subset=["id"], keep="first")
+        # 查重键 = 图片+问题 联合键（同图不同问题需各自保留，同键保留最新一条）
+        self._log_df = self._log_df.drop_duplicates(
+            subset=["id", "question"], keep="first"
+        )
         self._log_df = self._log_df.reset_index(drop=True)
 
         self._save_log_df()
