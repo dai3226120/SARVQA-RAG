@@ -10,10 +10,11 @@ from datetime import datetime
 
 import pandas as pd
 
-from rag.membership.log_manager import LogManager
+from rag.membership.log_manager import LogManager, fetch_slices_content
 from rag.membership.degree_calculator import MembershipCalculator
 from rag.membership.vlm_evaluator import VlmEvaluator
 from rag.membership.llm_judge import LlmJudge
+from rag.stores.slice_store import SliceStore
 from rag.core.config import rag_config
 from utils.logger_handler import logger
 
@@ -200,6 +201,16 @@ class SemanticCacheSystem:
             )
 
             if correct_logs:
+                # 补新 schema 字段：correct（LLM 判断通过恒为 1）+ 切片内容
+                # （综合向量 = 问题+切片内容+回答 在线路径的组成部分）
+                slice_store = SliceStore()
+                for log in correct_logs:
+                    log["correct"] = 1
+                    slice_ids = str(log.get("retrieved_slices", "")).split("|")
+                    log["retrieved_slices_content"] = fetch_slices_content(
+                        slice_store, slice_ids
+                    )
+
                 new_df = pd.DataFrame(correct_logs)
                 self.log_df = pd.concat([self.log_df, new_df], ignore_index=True)
                 self._log_manager._deduplicate_log_df()
