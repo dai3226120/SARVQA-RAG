@@ -96,6 +96,34 @@ def merge_log_records(existing_df: pd.DataFrame, new_records: list[dict]):
     return df, stats, replaced_keys
 
 
+def build_log_doc_text(
+    question: str,
+    slices_content: list[str],
+    answer: str,
+    slice_char_limit: int = 200,
+    total_char_limit: int = 1500,
+) -> str:
+    """构建隶属度相似度的综合向量文本：问题 + 切片内容 + 回答。
+
+    切片内容每片截断至 slice_char_limit 字符；整体截断至 total_char_limit 字符，
+    防止超出嵌入模型的输入上限。
+    """
+    truncated_slices = [s[:slice_char_limit] for s in slices_content if s]
+    slices_part = "\n".join(truncated_slices)
+    doc = f"Question: {question}\nRetrieved Slices: {slices_part}\nAnswer: {answer}"
+    return doc[:total_char_limit]
+
+
+def fetch_slices_content(slice_store, slices_id_list: list[str]) -> str:
+    """从切片库按 id 批量取切片内容，换行拼接（缺失切片跳过）"""
+    valid = [s for s in slices_id_list if s and str(s).strip()]
+    if not valid:
+        return ""
+    result = slice_store.get_by_ids(valid)
+    documents = result.get("documents", []) or []
+    return "\n".join(d for d in documents if d)
+
+
 class LogManager:
     """
     日志向量库生命周期管理器
