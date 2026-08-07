@@ -21,6 +21,81 @@ from utils.file_handler import get_file_md5_hex
 from utils.logger_handler import logger
 
 
+# ====================== 新 schema 常量与查重/替换纯逻辑 ======================
+LOG_COLUMNS = [
+    "id", "question", "retrieved_slices", "retrieved_slices_content",
+    "predicted_text", "correct", "correctness_score", "timestamp",
+]
+
+
+def record_key(id_: str, question: str) -> str:
+    """图片+问题 联合查重键"""
+    return f"{id_}__{question}"
+
+
+def generate_log_vector_id(base_id: str, question: str) -> str:
+    """确定性向量库 id：同一 (图片, 问题) 记录始终映射到同一向量 id，替换时可定位删除"""
+    q_hash = hashlib.md5(question.encode("utf-8")).hexdigest()[:8]
+    return f"log_{base_id}_{q_hash}"
+
+
+def merge_log_records(existing_df: pd.DataFrame, new_records: list[dict]):
+    """按 图片+问题 查重合并日志记录。
+
+    决策表：
+      - 键不存在        → added（追加）
+      - 存在且新分数更高 → replaced（整体替换，时间戳用新的）
+      - 存在且分数相等   → 保留时间戳更晚的一条（同分保新）
+      - 存在且新分数更低 → dropped（保留旧值）
+
+    Returns:
+        (merged_df, {"added": int, "replaced": int, "dropped": int}, replaced_keys)
+        replaced_keys: 实际发生替换的 (id, question) 键列表，供向量库定位删除旧向量
+    """
+    df = existing_df.copy()
+    if df.empty:
+        df = pd.DataFrame(columns=LOG_COLUMNS)
+    for col in LOG_COLUMNS:
+        if col not in df.columns:
+            df[col] = ""
+    df = df[LOG_COLUMNS]
+
+    stats = {"added": 0, "replaced": 0, "dropped": 0}
+    replaced_keys = []
+    key_to_idx = {record_key(r["id"], r["question"]): i for i, r in df.iterrows()}
+
+    for rec in new_records:
+        key = record_key(rec["id"], rec["question"])
+        new_score = float(rec.get("correctness_score", 0.0))
+        new_ts = str(rec.get("timestamp", ""))
+
+        if key not in key_to_idx:
+            stats["added"] += 1
+            row = pd.DataFrame([{c: rec.get(c, "") for c in LOG_COLUMNS}], columns=LOG_COLUMNS)
+            df = pd.concat([df, row], ignore_index=True)
+            key_to_idx[key] = len(df) - 1
+            continue
+
+        idx = key_to_idx[key]
+        old_score = float(df.at[idx, "correctness_score"] or 0.0)
+        old_ts = str(df.at[idx, "timestamp"] or "")
+
+        if new_score > old_score:
+            stats["replaced"] += 1
+            replaced_keys.append((rec["id"], rec["question"]))
+            for c in LOG_COLUMNS:
+                df.at[idx, c] = rec.get(c, "")
+        elif new_score == old_score and new_ts > old_ts:
+            stats["replaced"] += 1
+            replaced_keys.append((rec["id"], rec["question"]))
+            for c in LOG_COLUMNS:
+                df.at[idx, c] = rec.get(c, "")
+        else:
+            stats["dropped"] += 1
+
+    return df, stats, replaced_keys
+
+
 class LogManager:
     """
     日志向量库生命周期管理器
