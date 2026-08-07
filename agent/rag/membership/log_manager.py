@@ -8,7 +8,6 @@
 """
 import os
 import hashlib
-from datetime import datetime
 
 import pandas as pd
 from langchain_chroma import Chroma
@@ -163,16 +162,7 @@ class LogManager:
         elif os.path.exists(rag_config.log_path):
             self._init_incremental()
         else:
-            self.log_df = pd.DataFrame(
-                columns=[
-                    "id",
-                    "question",
-                    "retrieved_slices",
-                    "correctness_score",
-                    "predicted_text",
-                    "timestamp",
-                ]
-            )
+            self.log_df = pd.DataFrame(columns=LOG_COLUMNS)
 
     @property
     def log_df(self) -> pd.DataFrame:
@@ -192,16 +182,7 @@ class LogManager:
         """模式1: 强制全量重载"""
         logger.warning("[强制全量更新] force_full_reload=True，清空所有日志并重建...")
 
-        self._log_df = pd.DataFrame(
-            columns=[
-                "id",
-                "question",
-                "retrieved_slices",
-                "correctness_score",
-                "predicted_text",
-                "timestamp",
-            ]
-        )
+        self._log_df = pd.DataFrame(columns=LOG_COLUMNS)
         self._save_log_df()
         logger.info(f"[强制全量更新] 已清空反馈日志文件: {rag_config.log_path}")
 
@@ -228,29 +209,13 @@ class LogManager:
 
         if os.path.exists(rag_config.log_path):
             self._log_df = pd.read_csv(rag_config.log_path)
-            for col in [
-                "id",
-                "question",
-                "retrieved_slices",
-                "correctness_score",
-                "predicted_text",
-                "timestamp",
-            ]:
+            for col in LOG_COLUMNS:
                 if col not in self._log_df.columns:
                     self._log_df[col] = ""
             self._deduplicate_log_df()
             logger.info(f"[仅清空向量库] 已加载 {len(self._log_df)} 条CSV记录")
         else:
-            self._log_df = pd.DataFrame(
-                columns=[
-                    "id",
-                    "question",
-                    "retrieved_slices",
-                    "correctness_score",
-                    "predicted_text",
-                    "timestamp",
-                ]
-            )
+            self._log_df = pd.DataFrame(columns=LOG_COLUMNS)
 
         self._chroma_mgr.clear_and_rebuild_collection(
             collection_name=rag_config.log_collection_name,
@@ -262,14 +227,7 @@ class LogManager:
     def _init_incremental(self):
         """模式3: 增量更新（默认）"""
         self._log_df = pd.read_csv(rag_config.log_path)
-        for col in [
-            "id",
-            "question",
-            "retrieved_slices",
-            "correctness_score",
-            "predicted_text",
-            "timestamp",
-        ]:
+        for col in LOG_COLUMNS:
             if col not in self._log_df.columns:
                 self._log_df[col] = ""
 
@@ -384,22 +342,24 @@ class LogManager:
         logger.info(f"重载完成，成功全量同步 {len(texts)} 条记录至日志向量库。")
 
     def add_single_record(self, log_entry: dict):
-        """添加单条记录到日志和向量库"""
-        doc_text = (
-            f"Question: {log_entry['question']}\n"
-            f"Retrieved Slices: {log_entry['retrieved_slices']}"
+        """添加单条记录到日志和向量库（综合向量：问题+切片内容+回答）"""
+        slices_content = str(log_entry.get("retrieved_slices_content", "")).splitlines()
+        doc_text = build_log_doc_text(
+            log_entry["question"], slices_content, log_entry.get("predicted_text", "")
         )
-        unique_id = self._generate_unique_id(str(log_entry["id"]))
+        unique_id = generate_log_vector_id(str(log_entry["id"]), log_entry["question"])
 
         self._logs_collection.add_texts(
             texts=[doc_text],
             metadatas=[{
                 "id": str(log_entry["id"]),
                 "question": log_entry["question"],
-                "retrieved_slices": log_entry["retrieved_slices"],
-                "correctness_score": str(log_entry["correctness_score"]),
-                "predicted_text": log_entry["predicted_text"],
-                "timestamp": log_entry["timestamp"],
+                "retrieved_slices": log_entry.get("retrieved_slices", ""),
+                "retrieved_slices_content": log_entry.get("retrieved_slices_content", ""),
+                "correctness_score": str(log_entry.get("correctness_score", 0.0)),
+                "correct": str(log_entry.get("correct", 0)),
+                "predicted_text": log_entry.get("predicted_text", ""),
+                "timestamp": log_entry.get("timestamp", ""),
             }],
             ids=[unique_id],
         )
@@ -423,12 +383,19 @@ class LogManager:
         ids = []
 
         for idx, (_, row) in enumerate(df.iterrows()):
-            if pd.isna(row["question"]) or str(row["id"]).strip() == "":
+            if (
+                pd.isna(row["question"])
+                or not str(row["question"]).strip()
+                or str(row["id"]).strip() == ""
+            ):
                 continue
 
-            doc_text = (
-                f"Question: {row['question']}\n"
-                f"Retrieved Slices: {row['retrieved_slices']}"
+            slices_content = (
+                str(row["retrieved_slices_content"]).splitlines()
+                if not pd.isna(row["retrieved_slices_content"]) else []
+            )
+            doc_text = build_log_doc_text(
+                str(row["question"]), slices_content, str(row["predicted_text"])
             )
             texts.append(doc_text)
             metadatas.append({
@@ -437,9 +404,14 @@ class LogManager:
                 "retrieved_slices": (
                     str(row["retrieved_slices"]) if not pd.isna(row["retrieved_slices"]) else ""
                 ),
+                "retrieved_slices_content": (
+                    str(row["retrieved_slices_content"])
+                    if not pd.isna(row["retrieved_slices_content"]) else ""
+                ),
                 "correctness_score": (
                     str(row["correctness_score"]) if not pd.isna(row["correctness_score"]) else "0.0"
                 ),
+                "correct": str(row["correct"]) if not pd.isna(row["correct"]) else "0",
                 "predicted_text": (
                     str(row["predicted_text"]) if not pd.isna(row["predicted_text"]) else ""
                 ),
@@ -447,14 +419,6 @@ class LogManager:
                     str(row["timestamp"]) if not pd.isna(row["timestamp"]) else ""
                 ),
             })
-            ids.append(self._generate_unique_id(str(row["id"])))
+            ids.append(generate_log_vector_id(str(row["id"]), str(row["question"])))
 
         return texts, metadatas, ids
-
-    @staticmethod
-    def _generate_unique_id(base_id: str) -> str:
-        """生成唯一的向量库 ID"""
-        unique_suffix = hashlib.md5(
-            f"{base_id}_{datetime.now().timestamp()}".encode()
-        ).hexdigest()[:8]
-        return f"log_{base_id}_{unique_suffix}"
