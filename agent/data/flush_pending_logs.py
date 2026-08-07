@@ -12,9 +12,12 @@ import argparse
 import os
 import sys
 
+# 确保 agent/ 与项目根在 sys.path（脚本在 agent/data/ 下运行时；utils/model 包位于项目根）
 _AGENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if _AGENT_DIR not in sys.path:
-    sys.path.insert(0, _AGENT_DIR)
+_PROJECT_ROOT = os.path.dirname(_AGENT_DIR)
+for _p in (_PROJECT_ROOT, _AGENT_DIR):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 import pandas as pd
 
