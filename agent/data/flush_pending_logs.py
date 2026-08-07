@@ -57,7 +57,19 @@ def run_flush(pending_path, log_manager, slice_store, threshold=50):
     log_manager.log_df = merged_df
 
     # 向量库 upsert（先删被替换旧向量，再批量 add 全量新记录）
-    log_manager.upsert_records_to_vector_db(merged_df.to_dict("records"), replaced_keys)
+    upsert_result = log_manager.upsert_records_to_vector_db(
+        merged_df.to_dict("records"), replaced_keys
+    )
+
+    # 设计条款：向量库失败 → 保留 pending 不清空（CSV 已更新属可接受，下次重跑幂等）
+    if upsert_result.get("added", 0) != len(merged_df):
+        logger.warning(
+            "[flush] 向量库 upsert 未全量成功（added=%s/%s），保留 pending 供下次重试",
+            upsert_result.get("added", 0), len(merged_df),
+        )
+        print(f"⚠️ 向量库写入失败（{upsert_result.get('added', 0)}/{len(merged_df)}），"
+              f"pending 保留待重试（CSV 已更新）")
+        return {"pending": pending_count, **stats, "flushed": False}
 
     # 备份并清空暂存区
     backup = clear_pending_records(pending_path)

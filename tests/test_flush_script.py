@@ -65,6 +65,25 @@ def test_flush_merges_replaces_and_clears(tmp_path, monkeypatch):
     assert pd.read_csv(p).shape[0] == 0   # 已清空（仅表头）
 
 
+def test_flush_keeps_pending_when_vector_db_upsert_fails(tmp_path, monkeypatch):
+    """设计条款：向量库失败 → 保留 pending 不清空、flushed=False（CSV 已更新属可接受）"""
+    flush = load_script("flush_pending_logs")
+    m = _manager(tmp_path, monkeypatch)
+    # 伪造 upsert 失败：added=0 与合并后条数不符
+    monkeypatch.setattr(m, "upsert_records_to_vector_db",
+                        lambda *a, **k: {"added": 0, "deleted": 0})
+
+    p = str(tmp_path / "pending.csv")
+    append_pending_record(_pending_rec("a.png", "q1", 0.8), pending_path=p)
+
+    result = flush.run_flush(p, m, FakeSliceStore(), threshold=1)
+
+    assert result["flushed"] is False
+    assert result["pending"] == 1
+    assert pd.read_csv(p).shape[0] == 1       # pending 未被清空（保留供下次重试）
+    assert len(pd.read_csv(tmp_path / "logs.csv")) == 1   # CSV 合并成功已写入
+
+
 def test_script_self_injects_agent_and_project_root(monkeypatch):
     """回归防护：脚本必须自行注入 agent/ 与项目根（utils/model 包位于项目根）。
 
