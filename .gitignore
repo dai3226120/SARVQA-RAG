@@ -1,8 +1,24 @@
-benchmark/result/
-logs/
+# ===== Python =====
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
+# ===== 环境与密钥 =====
 .env
+
+# ===== 运行产物（不入库）=====
+logs/
+benchmark/result/
+benchmark/benchmark/
+agent/chroma_db/
+agent/md5*.text*
+agent/data/*.csv
+agent/data/*_backup_*
+agent/dataset_split/
+agent/knowledge_chunks.csv
+knowledge_chunks.csv
+dataset_split/
+dataset_analysis/dataset_analysis_result/
+dataset_analysis/origin_dataset/
+dataset_analysis/*.csv

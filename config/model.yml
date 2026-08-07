@@ -1,7 +1,8 @@
 # ====================== Agent 模型名称配置 ======================
 chat_model_name: qwen3-max
 embedding_model_name: text-embedding-v4
-huggingface_embedding_model_name: all-MiniLM-L6-v2
+huggingface_embedding_model_name: BAAI/bge-m3
+huggingface_embedding_device: auto   # 推理设备: auto(有GPU用GPU)/cuda/cpu
 
 # ====================== Doubao 1.5 Lite 配置（LLM 判断专用） ======================
 doubao-1-5-lite_model_name: doubao-1-5-lite-32k-250115

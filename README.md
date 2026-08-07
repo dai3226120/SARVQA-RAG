@@ -279,7 +279,7 @@ The semantic cache is persisted in ChromaDB and synchronized with a CSV feedback
 |----------|------------|
 | Agent Framework | LangChain, LangGraph |
 | Vision-Language Models | Doubao Seed 2.0 Mini, InternVL3.5-8B |
-| Embeddings | DashScope text-embedding-v4, all-MiniLM-L6-v2 (HuggingFace) |
+| Embeddings | DashScope text-embedding-v4, BAAI/bge-m3 (HuggingFace) |
 | Vector Database | ChromaDB |
 | Web UI | Streamlit |
 | Clustering | K-Means Constrained (scikit-learn) |

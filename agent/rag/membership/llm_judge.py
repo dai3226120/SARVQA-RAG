@@ -31,14 +31,19 @@ class LlmJudge(LLMJudgeClient):
     使用 factory.py 中的 doubao_1_5_lite_model 通过 LangChain 调用
     """
 
-    def __init__(self, model=None, max_workers: int = LLM_MAX_WORKERS):
+    def __init__(self, model=None, max_workers: int = LLM_MAX_WORKERS,
+                 max_retries: int = 3, retry_delay: float = 1.0):
         """
         Args:
             model: LangChain 聊天模型实例，默认使用 doubao_1_5_lite_model
             max_workers: 并发线程数
+            max_retries: 单次判断失败后的重试次数（指数退避）
+            retry_delay: 首次重试等待秒数，之后每次翻倍
         """
         self._model = model or doubao_1_5_lite_model
         self._max_workers = max_workers
+        self._max_retries = max_retries
+        self._retry_delay = retry_delay
 
     def judge(self, question: str, ground_truth: str, predicted: str) -> str:
         """
@@ -56,28 +61,44 @@ class LlmJudge(LLMJudgeClient):
             question=question, answer=ground_truth, predicted=predicted
         )
 
-        try:
-            response = self._model.invoke([
-                {"role": "system", "content": LLM_SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ])
+        # 瞬时失败（500/限流/网络抖动）重试：指数退避，全部重试失败才返回 "0"
+        import time
 
-            # 提取文本响应
-            if hasattr(response, "content"):
-                content = response.content.strip()
-            elif isinstance(response, str):
-                content = response.strip()
-            else:
-                content = str(response).strip()
+        for attempt in range(max(1, self._max_retries)):
+            try:
+                response = self._model.invoke([
+                    {"role": "system", "content": LLM_SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt},
+                ])
 
-            if content not in ["0", "1"]:
-                content = "1" if "1" in content else ("0" if "0" in content else "0")
+                # 提取文本响应
+                if hasattr(response, "content"):
+                    content = response.content.strip()
+                elif isinstance(response, str):
+                    content = response.strip()
+                else:
+                    content = str(response).strip()
 
-            return content
+                if content not in ["0", "1"]:
+                    content = "1" if "1" in content else ("0" if "0" in content else "0")
 
-        except Exception as e:
-            logger.warning(f"[LlmJudge] 判断失败: {e}")
-            return "0"
+                return content
+
+            except Exception as e:
+                if attempt < max(1, self._max_retries) - 1:
+                    delay = self._retry_delay * (2 ** attempt)
+                    logger.warning(
+                        f"[LlmJudge] 判断调用失败，{delay:.1f}秒后重试 "
+                        f"({attempt + 1}/{self._max_retries}): {e}"
+                    )
+                    time.sleep(delay)
+                else:
+                    logger.warning(
+                        f"[LlmJudge] 判断失败（重试 {self._max_retries} 次仍失败）: {e}"
+                    )
+                    return "0"
+
+        return "0"
 
     def judge_and_filter(
         self,

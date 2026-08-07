@@ -47,9 +47,17 @@ class HuggingFaceEmbeddingsFactory(BaseModelFactory):
     def generate(self) -> Optional[Embeddings | BaseChatModel]:
         """
         生成 HuggingFace 嵌入模型实例
-        从配置文件读取模型名称
+        从配置文件读取模型名称；推理设备优先取配置（huggingface_embedding_device），
+        未配置或为 auto 时自动检测 CUDA——有 GPU 用 GPU 推理，否则回落 CPU
         """
-        return HuggingFaceEmbeddings(model_name=model_conf['huggingface_embedding_model_name'])
+        device = model_conf.get('huggingface_embedding_device', 'auto')
+        if device == 'auto':
+            import torch
+            device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        return HuggingFaceEmbeddings(
+            model_name=model_conf['huggingface_embedding_model_name'],
+            model_kwargs={"device": device},
+        )
 
 
 # 图像识别模型工厂：用于创建 Doubao Seed 模型
@@ -80,7 +88,9 @@ class DoubaoLiteModelFactory(BaseModelFactory):
         return ChatOpenAI(
             model_name=model_conf['doubao-1-5-lite_model_name'],
             api_key=os.environ.get('DOUBAO_SEED_API_KEY') or model_conf.get('doubao_seed_api_key', ''),
-            base_url=model_conf['doubao_seed_full_endpoint'],
+            # 注意：ChatOpenAI 会自动追加 /chat/completions，必须用不带后缀的 api/v3 端点
+            # （doubao_seed_full_endpoint 带后缀会导致路径重复，服务端持续返回 500）
+            base_url=model_conf['doubao_seed_api_endpoint'],
             temperature=float(os.environ.get('DOUBAO_SEED_TEMPERATURE') or model_conf.get('doubao_1_5_lite_temperature', 0.7)),
             timeout=model_conf.get('doubao_1_5_lite_timeout', 30),
             extra_body={"thinking": {"type": model_conf.get('doubao_1_5_lite_thinking_mode', 'disabled')}},

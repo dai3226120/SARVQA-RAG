@@ -117,8 +117,12 @@ class SemanticCacheSystem:
                     "[测试ID: %s] 问题: %s", row["id"], row["question"]
                 )
 
+                # image 列为相对路径（如 /SAR-TEXT-data/...），拼接 base_image_dir 得绝对路径
+                image_full = os.path.join(
+                    rag_config.base_image_dir, str(row["image"]).lstrip("/")
+                )
                 score, response_text, slice_ids = self._vlm_evaluator.call_vlm_agent(
-                    row["image"], row["question"], row.get("answer")
+                    image_full, row["question"], row.get("answer")
                 )
 
                 logger.info(
