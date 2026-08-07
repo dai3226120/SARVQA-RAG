@@ -29,7 +29,10 @@ def calculate_conf_threshold(data: pd.DataFrame, col_name: str, confidence: floa
         confidence: 目标置信度
 
     返回:
-        tuple: (满足置信度的最小阈值, 实际置信度, 样本数)
+        tuple: (满足置信度的最小阈值, 实际置信度, 样本数, 是否退化)
+            - 退化 (degenerate=True)：最小达标阈值即指标最小值（全样本通过），
+              说明整体正确率已 ≥ 目标置信度，任何阈值都无法提供额外过滤区分度，
+              此时阈值返回 None，不应作为有效阈值展示
     """
     sorted_unique_vals = np.sort(data[col_name].unique())
 
@@ -48,13 +51,18 @@ def calculate_conf_threshold(data: pd.DataFrame, col_name: str, confidence: floa
             valid_confidences.append(current_confidence)
 
     if not valid_thresholds:
-        return None, 0, 0
+        return None, 0, 0, False
 
     best_threshold = min(valid_thresholds)
     best_confidence = valid_confidences[valid_thresholds.index(best_threshold)]
     best_sample_num = len(data[data[col_name] >= best_threshold])
 
-    return best_threshold, best_confidence, best_sample_num
+    # 退化检测：最小达标阈值 == 指标最小值 ⇔ 阈值处全样本通过（实际置信度=整体正确率）
+    # 此时阈值没有过滤意义，返回 None 表示"无需阈值"，避免展示误导性的指标最小值
+    degenerate = best_threshold == sorted_unique_vals[0]
+    if degenerate:
+        return None, best_confidence, best_sample_num, True
+    return best_threshold, best_confidence, best_sample_num, False
 
 
 # ====================== 图表保存工具 ======================
@@ -113,8 +121,12 @@ class ResultAnalyzer:
         self.results_summary = {}
         self.avg_pred_tokens = 0.0
 
-    def load_data(self) -> bool:
-        """加载并清洗数据"""
+    def load_data(self, verbose: bool = True) -> bool:
+        """加载并清洗数据
+
+        参数:
+            verbose: 是否打印统计信息（统计指标统一由调用方在流程末尾汇总展示时可设为 False）
+        """
         try:
             self.df = pd.read_csv(self.csv_path, encoding="utf-8")
 
@@ -124,9 +136,10 @@ class ResultAnalyzer:
             self.core_df = self.df[["correct"] + self.target_metrics].dropna()
             self.core_df["correct"] = self.core_df["correct"].astype(int)
 
-            print(f"有效样本数量: {len(self.core_df)}")
-            print(f"平均 Token 长度(字符数): {self.avg_pred_tokens:.2f}")
-            print(f"数据中 correct=1 的样本占比: {self.core_df['correct'].mean():.4f}")
+            if verbose:
+                print(f"有效样本数量: {len(self.core_df)}")
+                print(f"平均 Token 长度(字符数): {self.avg_pred_tokens:.2f}")
+                print(f"数据中 correct=1 的样本占比: {self.core_df['correct'].mean():.4f}")
 
             self.metrics_avg = self.core_df[self.target_metrics].mean()
             return True
@@ -140,13 +153,14 @@ class ResultAnalyzer:
         self.results_summary = {}
 
         for metric in self.target_metrics:
-            threshold, conf, sample = calculate_conf_threshold(
+            threshold, conf, sample, degenerate = calculate_conf_threshold(
                 self.core_df, metric, self.confidence_threshold
             )
             self.results_summary[metric] = {
                 "threshold": threshold,
                 "conf": conf,
-                "sample": sample
+                "sample": sample,
+                "degenerate": degenerate
             }
 
         return self.results_summary
@@ -165,8 +179,11 @@ class ResultAnalyzer:
         print(f"【{conf_percent:.0f}% 置信度 各指标阈值计算结果】")
         print("-" * 80)
 
+        baseline = self.core_df["correct"].mean() if self.core_df is not None else 0.0
         for metric, res in self.results_summary.items():
-            if res["threshold"] is not None:
+            if res.get("degenerate"):
+                print(f"  {metric:7} 无需阈值（整体正确率 {baseline:.2%} 已达目标 {conf_percent:.0f}%）")
+            elif res["threshold"] is not None:
                 print(f"  {metric:7} 阈值: {res['threshold']:.6f} | 实际置信度: {res['conf']:.2%}"
                       f" | 样本数: {res['sample']}")
             else:
@@ -213,22 +230,24 @@ class ResultAnalyzer:
         plt.grid(alpha=0.3)
         plt.show()
 
-    def analyze(self, plot: bool = False, save_dir: str = None) -> dict:
+    def analyze(self, plot: bool = False, save_dir: str = None, verbose: bool = True) -> dict:
         """
         执行完整分析流程
 
         参数:
             plot: 是否绘制趋势图
             save_dir: 图表保存目录
+            verbose: 是否打印统计摘要（统计指标统一由调用方在流程末尾汇总展示时可设为 False）
 
         返回:
             dict: 分析结果摘要
         """
-        if not self.load_data():
+        if not self.load_data(verbose=verbose):
             return {}
 
         self.compute_thresholds()
-        self.print_summary()
+        if verbose:
+            self.print_summary()
 
         if plot:
             self.plot_confidence_trends(save_dir)

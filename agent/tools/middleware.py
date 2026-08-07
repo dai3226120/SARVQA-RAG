@@ -19,12 +19,21 @@ class ToolLatencyTracker:
     _lock = threading.Lock()
     _thread_local = threading.local()
 
+    # ── 会话级统计（按会话 id 隔离；UI 切会话/新会话时调用 set_current_session）──
+    _session_stats: dict = {}        # session_id -> {"total_latency", "call_count"}
+    _current_session_id = None
+
     @classmethod
     def _get_thread_data(cls):
         if not hasattr(cls._thread_local, 'session_total_latency'):
             cls._thread_local.session_total_latency = 0.0
             cls._thread_local.session_call_count = 0
         return cls._thread_local
+
+    @classmethod
+    def set_current_session(cls, session_id):
+        """切换会话统计范围（None 表示无活动会话，统计归零显示）"""
+        cls._current_session_id = session_id
 
     @classmethod
     def record_retrieval_latency(cls, latency: float):
@@ -34,6 +43,12 @@ class ToolLatencyTracker:
         with cls._lock:
             cls._global_total_latency += latency
             cls._global_call_count += 1
+            if cls._current_session_id is not None:
+                data = cls._session_stats.setdefault(
+                    cls._current_session_id, {"total_latency": 0.0, "call_count": 0}
+                )
+                data["total_latency"] += latency
+                data["call_count"] += 1
 
     @classmethod
     def get_session_retrieval_latency(cls) -> float:
@@ -67,6 +82,22 @@ class ToolLatencyTracker:
             if cls._global_call_count == 0:
                 return 0.0
             return cls._global_total_latency / cls._global_call_count
+
+    @classmethod
+    def get_session_stats(cls) -> dict:
+        """获取当前会话的检索耗时统计（未设置会话时返回全 0）"""
+        with cls._lock:
+            if cls._current_session_id is None:
+                return {"total_latency": 0.0, "call_count": 0, "avg_latency": 0.0}
+            data = cls._session_stats.get(
+                cls._current_session_id, {"total_latency": 0.0, "call_count": 0}
+            )
+            avg = data["total_latency"] / data["call_count"] if data["call_count"] > 0 else 0.0
+            return {
+                "total_latency": data["total_latency"],
+                "call_count": data["call_count"],
+                "avg_latency": avg,
+            }
 
     @classmethod
     def reset_global(cls):

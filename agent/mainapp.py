@@ -94,6 +94,14 @@ def get_active_session():
     return None
 
 
+def sync_stats_scope():
+    """把会话级统计范围对齐到当前活动会话（切会话/新会话后调用，保证侧边栏统计与当前会话一致）"""
+    session = get_active_session()
+    sid = session["id"] if session else None
+    MembershipHybridService.set_current_session(sid)
+    ToolLatencyTracker.set_current_session(sid)
+
+
 def new_session(image_data):
     session = {
         "id": time.time_ns(),
@@ -168,13 +176,15 @@ def render_sidebar():
 
         st.divider()
         st.header("📊 会话统计")
-        stats = MembershipHybridService.get_membership_stats_static()
-        avg_latency = ToolLatencyTracker.get_global_avg_latency()
+        # 会话级统计：先对齐到当前活动会话，再读取该会话的累计值
+        sync_stats_scope()
+        stats = MembershipHybridService.get_session_stats_static()
+        latency_stats = ToolLatencyTracker.get_session_stats()
         st.markdown(
             f"隶属度命中率 **{stats['hit_rate'] * 100:.1f}%**"
             f"（{stats['hit_calls']}/{stats['total_calls']}）"
         )
-        st.markdown(f"平均检索耗时 **{avg_latency * 1000:.0f} ms**")
+        st.markdown(f"平均检索耗时 **{latency_stats['avg_latency'] * 1000:.0f} ms**")
 
         st.divider()
         st.header("💬 会话")
@@ -376,6 +386,9 @@ def handle_prompt(prompt: str):
     if staged_differs or (staged is None and session is None):
         session = new_session(staged)  # 新图片 / 无会话 → 新会话（staged 可为 None）
 
+    # 新建/切换会话后，会话级统计范围对齐到当前会话
+    sync_stats_scope()
+
     turn_image = session.get("image")  # 追问时取会话图片（若 staged 与之一致）
     history = []
     for t in session["turns"]:
@@ -403,13 +416,18 @@ def handle_prompt(prompt: str):
         turn["user_render_error"] = str(e)
         st.warning(f"用户消息渲染失败（不影响回答）：{e}")
     agent = st.session_state["agent_info"]["agent"]
+    # 文本模型不传图（spec：仅用文本回答）；图片仍参与用户消息的 UI 渲染
+    agent_key = st.session_state["agent_info"]["key"]
+    supports_image = MODEL_REGISTRY[agent_key]["supports_image"]
+    img_file = session_image_file(session) if supports_image else None
+    prev_trace = agent.get_last_trace()  # 提问前的 trace（用于判断本轮是否新增检索）
     chunks = []
     start = time.time()
     try:
         with st.status("思考中... 调用工具 rag_rscsv 检索", expanded=True) as status:
             status.write("模型推理中...")
             placeholder = st.chat_message("assistant").empty()
-            for chunk in agent.execute_stream(prompt, image_file=session_image_file(session), history=history):
+            for chunk in agent.execute_stream(prompt, image_file=img_file, history=history):
                 chunks.append(chunk)
                 placeholder.markdown("".join(chunks))
             turn["ai_text"] = "".join(chunks)
@@ -424,11 +442,12 @@ def handle_prompt(prompt: str):
         st.session_state["staged_image"] = None
     turn["latency_ms"] = (time.time() - start) * 1000
 
-    # 抓取本次检索过程（按 query 匹配，防上一轮残留）；转为 dict 供 UI 渲染
+    # 抓取本次检索过程（转为 dict 供 UI 渲染）：
+    # 本轮未触发新检索（trace 对象未变）→ 不显示，避免上一轮残留串扰；
+    # 本轮有检索 → 直接取最新 trace（LLM 改写问题导致 query 不精确一致时
+    # 也按 spec 兜底显示，不再误报"本轮无检索调用"）
     trace = agent.get_last_trace()
-    turn["trace"] = (
-        asdict(trace) if (trace is not None and trace.query == prompt) else None
-    )
+    turn["trace"] = asdict(trace) if (trace is not None and trace is not prev_trace) else None
 
     st.rerun()
 

@@ -44,6 +44,10 @@ class MembershipHybridService(BaseRetriever):
     _total_calls: int = 0
     _hit_calls: int = 0
 
+    # ── 会话级统计（按会话 id 隔离；UI 切会话/新会话时调用 set_current_session）──
+    _session_stats: dict = {}        # session_id -> {"total_calls", "hit_calls"}
+    _current_session_id: int | None = None
+
     def __init__(self):
         # 1. 基础构建器与切片集合
         self._builder = SliceBuilder()
@@ -112,6 +116,32 @@ class MembershipHybridService(BaseRetriever):
         return cls._hit_calls / cls._total_calls
 
     @classmethod
+    def set_current_session(cls, session_id):
+        """切换会话统计范围（None 表示无活动会话，统计归零显示）"""
+        cls._current_session_id = session_id
+
+    @classmethod
+    def _bump_session_stats(cls, hit: bool):
+        """会话级计数：一次检索调用（hit=True 表示命中）"""
+        sid = cls._current_session_id
+        if sid is None:
+            return
+        data = cls._session_stats.setdefault(sid, {"total_calls": 0, "hit_calls": 0})
+        data["total_calls"] += 1
+        if hit:
+            data["hit_calls"] += 1
+
+    @classmethod
+    def get_session_stats_static(cls) -> dict:
+        """静态方法：获取当前会话的隶属度统计（未设置会话时返回全 0）"""
+        sid = cls._current_session_id
+        if sid is None:
+            return {"total_calls": 0, "hit_calls": 0, "hit_rate": 0.0}
+        data = cls._session_stats.get(sid, {"total_calls": 0, "hit_calls": 0})
+        hit_rate = data["hit_calls"] / data["total_calls"] if data["total_calls"] > 0 else 0.0
+        return {"total_calls": data["total_calls"], "hit_calls": data["hit_calls"], "hit_rate": hit_rate}
+
+    @classmethod
     def reset_membership_stats(cls):
         """重置隶属度统计数据（类级共享）"""
         cls._total_calls = 0
@@ -169,6 +199,7 @@ class MembershipHybridService(BaseRetriever):
             # 阶段 1: 隶属度计算（缓存拦截与校验）
             # ==========================================
             MembershipHybridService._total_calls += 1
+            MembershipHybridService._bump_session_stats(hit=False)
             t1 = time.time()
             result_str, membership_trace = self._retrieve_by_membership(
                 query, membership_k, fit_threshold, top_p, w1, w2
@@ -257,6 +288,7 @@ class MembershipHybridService(BaseRetriever):
 
                 if documents:
                     MembershipHybridService._hit_calls += 1
+                    MembershipHybridService._bump_session_stats(hit=True)
 
                     # 按隶属度得分排序（同时携带 slice_id 供 trace 使用）
                     doc_with_membership = []

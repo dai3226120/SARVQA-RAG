@@ -58,14 +58,14 @@ from utils.print_utils import print_separator
 #     - agent-text-internVL_rscsv: 文本InternVL模型（RSCSV）
 
 # MODEL_KEY = "doubao-seed"
-# MODEL_KEY = "agent-text-doubao-seed"
+MODEL_KEY = "agent-text-doubao-seed"
 # MODEL_KEY = "agent-text-doubao-seed_rscsv"
 
 # MODEL_KEY = "internVL"
 # MODEL_KEY = "agent-text-internVL"
 # MODEL_KEY = "agent-text-internVL_rscsv"
 
-MODEL_KEY = "qwen37-plus"
+# MODEL_KEY = "qwen37-plus"
 
 
 # ====================== 流水线模式配置 ======================
@@ -73,8 +73,8 @@ MODEL_KEY = "qwen37-plus"
 #   "full"   : 预测 + 评估 + 分析（完整流水线，结束后更新 Excel 统计表）
 #   "eval"   : 评估 + 分析（跳过预测，需引用之前的预测结果）
 #   "analyze": 仅分析（跳过预测与评估，需引用之前的评估结果）
-PIPELINE_MODE = "analyze"
-RESULT_TIMESTAMP = "20260715_224359"  # eval/analyze 必填：引用 RESULT_DIR/<模型类型>/<文件标签>/<时间戳>/ 下的历史结果
+PIPELINE_MODE = "full"
+RESULT_TIMESTAMP = ""  # eval/analyze 必填：引用 RESULT_DIR/<模型类型>/<文件标签>/<时间戳>/ 下的历史结果
 
 _PIPELINE_MODES = ("full", "eval", "analyze")
 
@@ -137,10 +137,10 @@ DATASET_TAG = "val"
 IMAGE_BASE_PATH = cfg.path_config.IMAGE_BASE_PATH
 
 # ====================== 数据处理参数（可在此处直接修改）======================
-MAX_PROCESS_ROWS = 5000
+MAX_PROCESS_ROWS = 200
 START_ROW = 0
 MAX_WORKERS = 100
-BATCH_SAVE_THRESHOLD = 300
+BATCH_SAVE_THRESHOLD = 100
 
 # ====================== 分析参数 ======================
 CONFIDENCE_THRESHOLD = cfg.analysis_config.CONFIDENCE_THRESHOLD
@@ -265,11 +265,10 @@ def run_prediction(model_key: str, output_dir: str) -> dict:
         )
 
         if result_df is not None:
-            if hasattr(client, 'print_stats'):
-                client.print_stats()
+            # 注：client.print_stats() 的输出已统一移动到流程末尾的"统计指标汇总"中展示
             client_stats = client.get_stats() if hasattr(client, 'get_stats') else {}
             retrieval_stats = client.get_retrieval_latency_stats() if hasattr(client, 'get_retrieval_latency_stats') else {}
-            membership_hit_rate = client.get_rag_rscsv_membership_hit_rate() if hasattr(client, 'get_rag_rscsv_membership_hit_rate') else None
+            membership_stats = client.get_rag_rscsv_membership_stats() if hasattr(client, 'get_rag_rscsv_membership_stats') else None
             output_file = os.path.join(output_dir, f"{base_filename}_latest.csv")
             print(f"✅ 模型预测完成")
             return {
@@ -280,7 +279,7 @@ def run_prediction(model_key: str, output_dir: str) -> dict:
                     **client_stats,
                 },
                 "retrieval_stats": retrieval_stats,
-                "membership_hit_rate": membership_hit_rate,
+                "membership_stats": membership_stats,
             }
         else:
             print(f"❌ 模型预测返回空结果")
@@ -315,6 +314,7 @@ def run_benchmark(file_tag: str, output_dir: str, predicted_csv: str = None) -> 
             input_csv_path=predicted_csv,
             result_dir=output_dir,
             base_filename=base_filename,
+            print_report=False,  # 统计报告统一在流程末尾汇总展示
         )
 
         if not benchmarker.check_input_csv_structure():
@@ -328,6 +328,8 @@ def run_benchmark(file_tag: str, output_dir: str, predicted_csv: str = None) -> 
                 "success_count": benchmarker.success_count,
                 "failed_count": benchmarker.failed_count,
                 "total_time": benchmarker.total_time,
+                "success_rate": benchmarker.success_count / len(benchmarker.results) * 100
+                if benchmarker.results else 0.0,
             }
             # 计算平均指标
             success_results = [r for r in benchmarker.results if r.get("status") == "success"]
@@ -380,7 +382,7 @@ def run_analysis(file_tag: str, output_dir: str, benchmark_csv: str = None) -> d
             confidence_threshold=CONFIDENCE_THRESHOLD,
             target_metrics=TARGET_METRICS,
         )
-        results_summary = analyzer.analyze(plot=True, save_dir=plt_save_dir)
+        results_summary = analyzer.analyze(plot=True, save_dir=plt_save_dir, verbose=False)
 
         plt.show = original_show
         print(f"\n✅ 结果分析完成")
@@ -391,6 +393,9 @@ def run_analysis(file_tag: str, output_dir: str, benchmark_csv: str = None) -> d
             "stats": {
                 "plot_count": plot_counter[0],
                 "avg_pred_tokens": analyzer.avg_pred_tokens,
+                "valid_sample_count": len(analyzer.core_df) if analyzer.core_df is not None else 0,
+                "correct_rate": float(analyzer.core_df["correct"].mean())
+                if analyzer.core_df is not None else 0.0,
             },
             "metrics_avg": analyzer.metrics_avg.to_dict() if analyzer.metrics_avg is not None else {},
             "results_summary": analyzer.results_summary,
@@ -402,6 +407,90 @@ def run_analysis(file_tag: str, output_dir: str, benchmark_csv: str = None) -> d
         import traceback
         traceback.print_exc()
         return {"success": False, "plots_dir": None, "stats": {}}
+
+
+# ====================== 统计指标汇总（统一放到流程最后展示） ======================
+def _print_final_stats(pred_result: dict = None, bench_result: dict = None,
+                       analysis_result: dict = None):
+    """流程末尾统一打印全部统计指标，按 预测→评估→分析 顺序展示。
+
+    各步骤的统计输出会淹没在中间的推理过程日志中，因此统一收集后
+    在流程最后集中展示，方便查看对比。
+    """
+    print_separator("📊 统计指标汇总")
+
+    # ---- 1. 预测统计 ----
+    if pred_result and pred_result.get("success"):
+        stats = pred_result.get("stats", {})
+        print("\n【1. 模型预测统计】")
+        print(f"   - 总处理行数: {stats.get('total_rows', 0)}")
+        if stats.get("call_count"):
+            print(f"   - API 调用次数: {stats['call_count']}"
+                  f" | 成功: {stats.get('success_count', 0)} | 失败: {stats.get('failed_count', 0)}")
+            print(f"   - API 成功率: {stats.get('success_rate', 0):.2f}%")
+            print(f"   - API 总耗时: {stats.get('total_latency', 0):.2f}秒"
+                  f" | 平均耗时: {stats.get('avg_latency', 0):.2f}秒/次")
+        retrieval_stats = pred_result.get("retrieval_stats") or {}
+        if retrieval_stats.get("call_count", 0) > 0:
+            print(f"   - RAG 检索次数: {retrieval_stats['call_count']}"
+                  f" | 总耗时: {retrieval_stats.get('total_latency', 0):.2f}秒"
+                  f" | 平均耗时: {retrieval_stats.get('avg_latency', 0):.2f}秒/次")
+        membership_stats = pred_result.get("membership_stats")
+        if membership_stats is not None:
+            membership_total = membership_stats.get("total_calls", 0)
+            if membership_total > 0:
+                print(f"   - RSCSV 隶属度检索: 总调用 {membership_total} 次"
+                      f" | 命中 {membership_stats.get('hit_calls', 0)} 次"
+                      f" | 命中率: {membership_stats.get('hit_rate', 0):.2%}")
+            else:
+                print("   - RSCSV 隶属度检索: 本运行未执行（调用次数为 0）")
+
+    # ---- 2. 评估统计 ----
+    if bench_result and bench_result.get("success"):
+        stats = bench_result.get("stats", {})
+        total_rows = stats.get("total_rows", 0)
+        success_count = stats.get("success_count", 0)
+        print("\n【2. 指标评估统计】")
+        print(f"   - 总处理行数: {total_rows}"
+              f" | 成功: {success_count} | 失败: {stats.get('failed_count', 0)}")
+        print(f"   - 处理成功率: {stats.get('success_rate', 0):.2f}%")
+        if success_count:
+            print(f"   - 语义匹配数: {stats.get('match_count', 0)} | 总成功数: {success_count}")
+            print(f"   - 语义匹配率: {stats.get('match_rate', 0):.4f} ({stats.get('match_rate', 0) * 100:.2f}%)")
+            print(f"   - 平均余弦相似度: {stats.get('avg_cosine', 0):.4f}")
+            print(f"   - 平均 ROUGE-L 分数: {stats.get('avg_rouge_l', 0):.4f}")
+            print(f"   - 平均信息增益度 IG: {stats.get('avg_ig', 0):.4f}")
+            print(f"   - 平均信息密度 ID: {stats.get('avg_id', 0):.4f}")
+        print(f"   - 评估总耗时: {stats.get('total_time', 0):.2f}秒")
+
+    # ---- 3. 分析统计 ----
+    if analysis_result and analysis_result.get("success"):
+        stats = analysis_result.get("stats", {})
+        print("\n【3. 结果分析统计】")
+        print(f"   - 有效样本数量: {stats.get('valid_sample_count', 0)}")
+        print(f"   - 平均 Token 长度(字符数): {stats.get('avg_pred_tokens', 0):.2f}")
+        print(f"   - correct=1 样本占比: {stats.get('correct_rate', 0):.4f}")
+        metrics_avg = analysis_result.get("metrics_avg", {})
+        if metrics_avg:
+            print("   - 各指标全量样本平均值:")
+            for metric, value in metrics_avg.items():
+                print(f"       {metric:7} 平均值: {value:.6f}")
+        results_summary = analysis_result.get("results_summary", {})
+        if results_summary:
+            conf_percent = CONFIDENCE_THRESHOLD * 100
+            baseline = stats.get("correct_rate", 0)
+            print(f"   - {conf_percent:.0f}% 置信度阈值计算结果:")
+            for metric, res in results_summary.items():
+                if res.get("degenerate"):
+                    print(f"       {metric:7} 无需阈值（整体正确率 {baseline:.2%} 已达目标 {conf_percent:.0f}%）")
+                elif res.get("threshold") is not None:
+                    print(f"       {metric:7} 阈值: {res['threshold']:.6f}"
+                          f" | 实际置信度: {res.get('conf', 0):.2%}"
+                          f" | 样本数: {res.get('sample', 0)}")
+                else:
+                    print(f"       {metric:7} 未找到满足条件的阈值")
+
+    print("\n" + "=" * 80)
 
 
 # ====================== 主入口 ======================
@@ -485,6 +574,9 @@ def main():
             print("⚠️ 评估流程结束（结果分析失败）")
             print("=" * 80)
 
+        # 流程末尾统一展示全部统计指标
+        _print_final_stats(pred_result, bench_result, analysis_result)
+
     elif mode == "eval":
         # ---- 评估 + 分析（跳过预测，不更新 Excel）----
         print("\n" + "=" * 80)
@@ -508,6 +600,9 @@ def main():
             print("⚠️ 评估→分析流程结束（结果分析失败）")
             print("=" * 80)
 
+        # 流程末尾统一展示全部统计指标
+        _print_final_stats(None, bench_result, analysis_result)
+
     else:  # analyze
         # ---- 仅分析（跳过预测与评估，不更新 Excel）----
         print("\n" + "=" * 80)
@@ -524,6 +619,9 @@ def main():
             print("\n" + "=" * 80)
             print("⚠️ 仅分析流程结束（结果分析失败）")
             print("=" * 80)
+
+        # 流程末尾统一展示全部统计指标
+        _print_final_stats(None, None, analysis_result)
 
 
 if __name__ == "__main__":

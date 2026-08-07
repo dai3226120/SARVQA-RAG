@@ -259,13 +259,15 @@ class Benchmarker:
         result_dir: str = "",
         base_filename: str = "benchmark",
         max_rows: int = 50000,
-        max_workers: int = 30
+        max_workers: int = 30,
+        print_report: bool = True
     ):
         self.input_csv_path = input_csv_path
         self.result_dir = result_dir
         self.base_filename = base_filename
         self.max_rows = max_rows
         self.max_workers = max_workers
+        self.print_report = print_report
         self.results = []
         self.success_count = 0
         self.failed_count = 0
@@ -387,8 +389,9 @@ class Benchmarker:
             with LOCK:
                 print(f"Latest 版本文件复制失败：{str(e)}")
 
-        # 4. 统计报告
-        self._print_report(start_time)
+        # 4. 统计报告（统计指标统一由调用方在流程末尾汇总展示，此处可关闭）
+        if self.print_report:
+            self._print_report(start_time)
 
         self.total_time = time.time() - start_time
         return output_csv_path

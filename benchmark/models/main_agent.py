@@ -274,13 +274,17 @@ class MainAgentClient:
             return self.agent.get_tool_hit_stats()
         return {}
 
-    def get_rag_rscsv_membership_hit_rate(self):
-        """获取 rag_rscsv 的真正隶属度命中率"""
+    def get_rag_rscsv_membership_stats(self):
+        """获取 rag_rscsv 的隶属度检索统计（总调用次数/命中次数/命中率）
+
+        与 get_rag_rscsv_membership_hit_rate 不同：当隶属度检索从未执行
+        （total_calls == 0）时返回的是 0 统计而非 0.0 命中率，两者可区分。
+        """
         if self._rscsv_service_class:
             try:
-                return self._rscsv_service_class.get_membership_hit_rate_static()
+                return self._rscsv_service_class.get_membership_stats_static()
             except Exception as e:
-                safe_print(f"[WARN] 获取隶属度命中率失败: {e}")
+                safe_print(f"[WARN] 获取隶属度统计失败: {e}")
                 return None
         return None
 
