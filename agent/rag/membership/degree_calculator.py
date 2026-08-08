@@ -113,6 +113,8 @@ class MembershipCalculator:
                 "correctness_score": correctness,
                 "membership_degree": membership,
                 "retrieved_slices": retrieved_slices,
+                # 日志自带切片内容快照（策略1 直接使用，无需再查切片库）
+                "retrieved_slices_content": metadata.get("retrieved_slices_content", ""),
             })
 
             # 仅基于合格日志统计切片隶属度（取最高隶属度）

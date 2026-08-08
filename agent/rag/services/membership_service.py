@@ -285,44 +285,27 @@ class MembershipHybridService(BaseRetriever):
                     f"隶属度(从大到小): [{memberships_str}]"
                 )
 
-                top_slice_info = membership_result["weighted_slices"][:top_p]
-                top_slice_ids = [s["slice_id"] for s in top_slice_info]
-                logger.info(f" 正在尝试从切片库获取以下 ID 的数据: {top_slice_ids}")
+                # 策略1：日志已包含切片内容快照（retrieved_slices_content），
+                # 直接按日志隶属度排序取内容，不再查切片库 get_by_ids
+                top_logs = sorted(
+                    membership_result["top_logs"],
+                    key=lambda x: x["membership_degree"],
+                    reverse=True,
+                )[:top_p]
+                doc_with_membership = [
+                    (log.get("retrieved_slices_content", ""), log["membership_degree"], log["id"])
+                    for log in top_logs
+                ]
+                doc_with_membership = [d for d in doc_with_membership if d[0]]
 
-                slices_data = self._store.get_by_ids(top_slice_ids)
-                documents = slices_data.get("documents", [])
-                metadatas = slices_data.get("metadatas", [])
-
-                logger.info(f" 切片库实际返回了 {len(documents)} 条文档内容")
-
-                if documents:
+                if doc_with_membership:
                     MembershipHybridService._hit_calls += 1
                     MembershipHybridService._bump_session_stats(hit=True)
 
-                    # 按隶属度得分排序（同时携带 slice_id 供 trace 使用）
-                    doc_with_membership = []
-                    for i, (doc, metadata) in enumerate(zip(documents, metadatas)):
-                        slice_id = (
-                            metadata.get("slice_id")
-                            if isinstance(metadata, dict)
-                            else top_slice_ids[i]
-                        )
-                        membership_degree = next(
-                            (
-                                s["membership_degree"]
-                                for s in top_slice_info
-                                if s["slice_id"] == slice_id
-                            ),
-                            0.0,
-                        )
-                        doc_with_membership.append((doc, membership_degree, slice_id))
-
-                    doc_with_membership.sort(key=lambda x: x[1], reverse=True)
-
                     trace_data["final_slices"] = [
-                        {"slice_id": sid, "score": score,
-                         "score_type": "membership", "content": doc}
-                        for doc, score, sid in doc_with_membership
+                        {"slice_id": log_id, "score": score,
+                         "score_type": "membership", "content": content}
+                        for content, score, log_id in doc_with_membership
                     ]
 
                     content = "\n---\n".join(
