@@ -1,4 +1,11 @@
 import os
+# Windows 下 pyarrow(pandas 间接依赖) 先加载会导致 ortools DLL 加载失败(WinError 127)。
+# 各入口脚本已在 pandas 之前导入 k_means_constrained；此处再兜底一次，
+# 保证本模块(权重加载源头)导入时 ortools 扩展 DLL 已在进程内。
+try:
+    import k_means_constrained  # noqa: F401
+except ImportError:
+    pass  # 无该依赖时跳过（仅失去顺序保护）
 from abc import ABC, abstractmethod
 from typing import Optional
 from langchain_core.embeddings import Embeddings

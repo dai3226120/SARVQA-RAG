@@ -12,6 +12,10 @@
     python agent/data/rebuild_vector_stores.py --only knowledge
     python agent/data/rebuild_vector_stores.py --only logs
 """
+# Windows 下 pyarrow(pandas 间接依赖) 先加载会导致 ortools DLL 加载失败(WinError 127)。
+# 必须先于 pandas 导入 k_means_constrained，让 ortools 扩展 DLL 先进入进程。
+import k_means_constrained  # noqa: F401
+
 import argparse
 import os
 import shutil
