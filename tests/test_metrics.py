@@ -22,9 +22,10 @@ def test_semantic_cosine_exact_match_high():
 
 
 def test_semantic_cosine_unrelated_low():
+    # 阈值 0.65 按 bge-m3 标定：实测不相关句对 0.57~0.62，相关句对 ≥0.74
     s1 = "The cat sat on the mat."
     s2 = "The stock market rose sharply today."
-    assert calculate_cosine_similarity(s1, s2) < 0.4
+    assert calculate_cosine_similarity(s1, s2) < 0.65
 
 
 def test_semantic_cosine_empty_text_zero():
