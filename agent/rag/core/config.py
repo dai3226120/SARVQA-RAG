@@ -56,6 +56,11 @@ class RagConfig:
     # ── 日志向量库 ──
     log_collection_name: str = "rag_test_logs"
 
+    # ── 日志库语义去重与容量控制 ──
+    dedup_sim_threshold: float = float(chroma_conf.get("dedup", {}).get("sim_threshold", 0.92))
+    dedup_pre_filter: float = float(chroma_conf.get("dedup", {}).get("pre_filter", 0.80))
+    dedup_max_log_records: int = int(chroma_conf.get("dedup", {}).get("max_log_records", 0))
+
     # ── VLM Agent 类型 ──
     vlm_agent_type: str = chroma_conf.get("vlm_agent_type", "doubao")
 

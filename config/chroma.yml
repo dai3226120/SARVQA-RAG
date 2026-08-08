@@ -35,3 +35,9 @@ collections:
 retrieval:
   fit_threshold: 0.65
   enable_rag_context: false   # 是否在混合检索阶段 0 启用 RAG 知识库向量检索
+
+# 日志库语义去重与容量控制（flush_pending_logs.py 入库时生效）
+dedup:
+  sim_threshold: 0.92   # 同图问题级余弦相似度≥此值判定为问法变体（实测：存量库 max=0.884，零误合并；勿下调至 0.85-0.88 区间，会误合并同图不同问题）
+  pre_filter: 0.80      # 文档级相似度预筛阈值，低于此值的同图候选不做问题级复核（省嵌入）
+  max_log_records: 0    # 0 = 自动 = round(1.5 × 切片库条数)；正整数 = 硬上限
