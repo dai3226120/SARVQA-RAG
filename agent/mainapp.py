@@ -82,7 +82,7 @@ def init_state():
     if "params" not in st.session_state:
         st.session_state["params"] = {
             "w1": 0.9, "w2": 0.1, "fit_threshold": 0.65,
-            "slice_k": 50, "top_p": 9,
+            "slice_k": 50,
         }
 
 
@@ -156,12 +156,11 @@ def render_sidebar():
         w1 = st.slider("w1 相似度权重", 0.0, 1.0, p["w1"], 0.05)
         st.caption(f"w2 正确率权重 = {1 - w1:.2f}（自动联动，和为 1）")
         fit_threshold = st.slider("fit_threshold 命中阈值", 0.0, 1.0, p["fit_threshold"], 0.05)
-        # membership_k 已弃用（隶属度检索固定取全量库 top-1），不再提供滑杆
+        # membership_k / top_p 已弃用（隶属度固定 top-1；检索多少就送多少），不再提供滑杆
         slice_k = st.number_input("slice_k 切片检索数", 1, 200, p["slice_k"])
-        top_p = st.number_input("top_p 保留数", 1, 50, p["top_p"])
         st.session_state["params"] = {
             "w1": w1, "w2": round(1 - w1, 2), "fit_threshold": fit_threshold,
-            "slice_k": int(slice_k), "top_p": int(top_p),
+            "slice_k": int(slice_k),
         }
 
         st.divider()
@@ -213,7 +212,7 @@ def render_trace(trace: dict):
         st.warning(f"🔄 未命中 → 降级切片检索  μ_max={max_mu:.4f} < {threshold}")
     st.caption(
         f"参数: w1={p.get('w1')} w2={p.get('w2')} 阈值={threshold} "
-        f"slice_k={p.get('slice_k')} top_p={p.get('top_p')}"
+        f"slice_k={p.get('slice_k')}"
     )
     if trace.get("error"):
         st.error(f"检索异常: {trace['error']}")

@@ -31,7 +31,6 @@ class SliceRetrievalService(BaseRetriever):
         self._store = self._builder.store
         self._knowledge_service = KnowledgeRagService()
         self._slice_k = rag_config.slice_k
-        self._top_p = rag_config.top_p
         self._enable_rag_context = rag_config.enable_rag_context
         # 切片库全量精确检索器（faiss 暴力 top-k，替代 Chroma HNSW 近似）
         self._slice_index = ExactVectorIndex(
@@ -46,20 +45,18 @@ class SliceRetrievalService(BaseRetriever):
         """获取最近一次检索的过程记录（耗时拆分，供 UI/统计展示）"""
         return self._last_trace
 
-    def hybrid_retrieve(self, query: str, slice_k: int = None, top_p: int = None) -> str:
+    def hybrid_retrieve(self, query: str, slice_k: int = None) -> str:
         """
         执行基础切片检索（带相似度得分归一化）
 
         Args:
             query: 查询文本
-            slice_k: 检索返回的切片数量
-            top_p: 最终保留的结果数量
+            slice_k: 检索返回的切片数量（检索多少就送多少，全部保留）
 
         Returns:
             格式化的检索结果字符串（含切片 ID 标记）
         """
         slice_k = slice_k or self._slice_k
-        top_p = top_p or self._top_p
 
         # ==========================================
         # 阶段 0: RAG 向量检索（通过 chroma.yml → retrieval.enable_rag_context 控制）
@@ -74,13 +71,13 @@ class SliceRetrievalService(BaseRetriever):
         slice_results = self._slice_index.search(qe, slice_k)  # [(slice_id, score)] 降序
         _t2 = _time.perf_counter()
         if slice_results:
-            # 按 id 精确取文档内容（与 hits 顺序一致）
-            top_ids = [h[0] for h in slice_results[:top_p]]
+            # 按 id 精确取文档内容（与 hits 顺序一致）；检索多少就送多少，全部保留
+            top_ids = [h[0] for h in slice_results]
             got = self._store.get_by_ids(top_ids)
             _t3 = _time.perf_counter()
             documents = got.get("documents") or []
             metadatas = got.get("metadatas") or []
-            top_scores = [h[1] for h in slice_results[:top_p]]
+            top_scores = [h[1] for h in slice_results]
             self._last_trace = {
                 "total_latency": (_t3 - _t0) * 1000,
                 "stage1_latency": (_t3 - _t0) * 1000,  # 对齐 RetrievalTrace 字段（无阶段0/2）
@@ -136,12 +133,10 @@ class SliceRetrievalService(BaseRetriever):
             )
             return (
                 f"【RAG检索参考】\n{rag_context}\n\n==============================\n\n"
-                f"【匹配基础切片】(共检索{slice_k}条，"
-                f"按相似度排序后保留{len(sorted_results)}条)  \n{content}\n"
+                f"【匹配基础切片】(全量精确检索{slice_k}条)  \n{content}\n"
                 f"<!-- SLICE_IDS: {slice_ids_str} -->"
             ) if rag_context else (
-                f"【匹配基础切片】(共检索{slice_k}条，"
-                f"按相似度排序后保留{len(sorted_results)}条)  \n{content}\n"
+                f"【匹配基础切片】(全量精确检索{slice_k}条)  \n{content}\n"
                 f"<!-- SLICE_IDS: {slice_ids_str} -->"
             )
 

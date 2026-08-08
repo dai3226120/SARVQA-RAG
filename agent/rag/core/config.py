@@ -18,9 +18,9 @@ class RagConfig:
 
     # ── 检索参数 ──
     k: int = int(chroma_conf.get("k", 1))
-    top_p: int = int(chroma_conf.get("top_p", 9))
     slice_k: int = int(chroma_conf.get("slice_k", 50))
     # membership_k: 已弃用，隶属度检索固定取全量库 top-1（见 degree_calculator）
+    # top_p: 已弃用，检索多少就送多少，切片检索固定保留全部 slice_k 条
 
     # ── 隶属度权重 ──
     w1: float = float(chroma_conf.get("w1", 0.9))

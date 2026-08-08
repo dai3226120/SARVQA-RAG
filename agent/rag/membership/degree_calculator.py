@@ -38,7 +38,6 @@ class MembershipCalculator:
         self,
         query: str,
         fit_threshold: float = None,
-        top_p: int = None,
         w1: float = None,
         w2: float = None,
         qe=None,
@@ -48,12 +47,11 @@ class MembershipCalculator:
 
         语义：日志库为全量精确检索（faiss 暴力扫描），相似度排序全局最优，
         只需召回隶属度最高的一条日志；该条 ≥ 阈值即命中，直接用其存储的
-        切片内容快照召回，不做多余处理（top_p 参数保留仅为接口兼容）。
+        切片内容快照召回，不做多余处理。
 
         Args:
             query: 新查询问题
             fit_threshold: 隶属度阈值
-            top_p: 保留参数
             w1: 相似度权重（运行时透传，优先于构造默认）
             w2: 正确性分数权重（运行时透传，优先于构造默认）
 

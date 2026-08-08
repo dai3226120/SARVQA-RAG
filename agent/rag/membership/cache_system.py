@@ -65,7 +65,7 @@ class SemanticCacheSystem:
 
     def calculate_membership_degree(
         self, query: str, fit_threshold: float = None,
-        top_p: int = None, w1: float = None, w2: float = None,
+        w1: float = None, w2: float = None,
         qe=None,
     ) -> dict:
         """
@@ -75,7 +75,6 @@ class SemanticCacheSystem:
         Args:
             query: 新查询问题
             fit_threshold: 隶属度阈值
-            top_p: 保留参数（兼容签名）
             w1: 相似度权重（运行时透传，优先于构造默认）
             w2: 正确性分数权重（运行时透传，优先于构造默认）
 
@@ -83,7 +82,7 @@ class SemanticCacheSystem:
             dict: 隶属度计算结果
         """
         return self._calculator.calculate(
-            query, fit_threshold=fit_threshold, top_p=top_p, w1=w1, w2=w2, qe=qe
+            query, fit_threshold=fit_threshold, w1=w1, w2=w2, qe=qe
         )
 
     def evaluate_and_log(self, test_df, base_rag_engine=None, max_workers=50):
@@ -289,7 +288,6 @@ class Config:
     """兼容旧代码的配置类（建议改用 rag.core.config.rag_config）"""
     retrieval_k = rag_config.k
     slice_k = rag_config.slice_k
-    top_p = rag_config.top_p
     membership_w1 = rag_config.w1
     membership_w2 = rag_config.w2
     bleu_weight = rag_config.bleu_weight

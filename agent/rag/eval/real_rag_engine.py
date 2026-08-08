@@ -18,7 +18,6 @@ class RealRAGEngine:
         self._builder = SliceBuilder()
         self._store = self._builder.store
         self._slice_k = rag_config.slice_k
-        self._top_p = rag_config.top_p
 
     def search(self, query, k=None):
         """
@@ -29,7 +28,7 @@ class RealRAGEngine:
             k: 返回结果数量（已废弃，使用配置中的 slice_k）
 
         Returns:
-            list: 检索到的切片列表（按相似度降序排序后取前 top_p 条）
+            list: 检索到的切片列表（按相似度降序，检索多少就送多少，全部保留）
         """
         slice_results = self._store.similarity_search_with_scores(
             query, k=self._slice_k
@@ -39,7 +38,7 @@ class RealRAGEngine:
             return []
 
         sorted_results = sorted(slice_results, key=lambda x: x[1], reverse=True)
-        top_results = sorted_results[: self._top_p]
+        top_results = sorted_results
 
         results = []
         for doc, score in top_results:
