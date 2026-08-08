@@ -5,6 +5,7 @@ import pytest
 from rag.membership.log_manager import LOG_COLUMNS
 from rag.membership.staging import PENDING_COLUMNS, append_pending_record
 from tests.conftest import NoopCollection, FakeSliceStore, load_script
+from tests.test_log_dedup import DictEmbed, FakeLogIndex
 
 
 def _manager(tmp_path, monkeypatch):
@@ -55,7 +56,10 @@ def test_flush_merges_replaces_and_clears(tmp_path, monkeypatch):
     assert result["flushed"] is True
     assert result["added"] == 1
     assert result["replaced"] == 1
-    assert result["dropped"] == 1
+    # 语义路径上线后，批内完全相同的 (a.png, q1) 低分记录改由批内合并统计
+    # （in_batch_dropped），不再计入库内丢弃（dropped）
+    assert result["dropped"] == 0
+    assert result["in_batch_dropped"] == 1
 
     df = pd.read_csv(tmp_path / "logs.csv")
     assert len(df) == 2
@@ -126,3 +130,103 @@ def test_cli_loadable_standalone_subprocess():
     )
     assert "ModuleNotFoundError" not in proc.stderr, f"脚本 import 崩溃:\n{proc.stderr}"
     assert "No module named" not in proc.stderr, f"sys.path 注入缺失:\n{proc.stderr}"
+
+
+# ── 语义去重 + 容量上限（Task 3）──
+
+def _flush_with_semantic(tmp_path, monkeypatch, pending_rows, library_rows,
+                         index_hits=None, max_log_records=0, threshold=1):
+    """构造 假嵌入+假索引 的 run_flush 环境；返回 (result, manager, pending_path)
+
+    threshold 默认 1（brief 原稿为 2，与单条 pending 用例冲突：1 < 2 会跳过入库）。
+    """
+    flush = load_script("flush_pending_logs")
+    m = _manager(tmp_path, monkeypatch)
+    m.log_df = pd.DataFrame(library_rows, columns=LOG_COLUMNS)
+    p = str(tmp_path / "pending.csv")
+    for r in pending_rows:
+        append_pending_record(r, pending_path=p)
+    monkeypatch.setattr(flush.rag_config, "dedup_max_log_records", max_log_records)
+    embed = DictEmbed({"What is shown?": [1, 0, 0, 0], "What is displayed?": [1, 0, 0, 0],
+                       "How many?": [0, 1, 0, 0], "brand new?": [0, 0, 1, 0]})
+    index = FakeLogIndex(index_hits or {})
+    result = flush.run_flush(p, m, FakeSliceStore(), threshold=threshold,
+                             logs_index=index, embed_fn=embed)
+    return result, m, p
+
+
+def test_flush_semantic_replaces_old_vector_deleted(tmp_path, monkeypatch):
+    result, m, p = _flush_with_semantic(
+        tmp_path, monkeypatch,
+        pending_rows=[_pending_rec("a.png", "What is displayed?", 0.9)],
+        library_rows=[{
+            "id": "a.png", "question": "What is shown?", "retrieved_slices": "s0",
+            "retrieved_slices_content": "old", "predicted_text": "old", "correct": 1,
+            "correctness_score": 0.6, "timestamp": "2026-08-07 08:00:00",
+        }],
+        index_hits={"What is displayed?": [({"id": "a.png", "question": "What is shown?"}, 0.95)]},
+    )
+    assert result["flushed"] is True
+    assert result["replaced"] == 1 and result["added"] == 0
+    # 旧向量按旧键删除（generate_log_vector_id = md5(旧问题) 派生，见 log_manager.py:35-38）
+    from rag.membership.log_manager import generate_log_vector_id
+    assert generate_log_vector_id("a.png", "What is shown?") in m._logs_collection.deleted
+    df = pd.read_csv(tmp_path / "logs.csv")
+    assert len(df) == 1 and df.iloc[0]["question"] == "What is displayed?"
+
+
+def test_flush_semantic_lower_score_dropped_keeps_library(tmp_path, monkeypatch):
+    result, m, p = _flush_with_semantic(
+        tmp_path, monkeypatch,
+        pending_rows=[_pending_rec("a.png", "What is displayed?", 0.4)],
+        library_rows=[{
+            "id": "a.png", "question": "What is shown?", "retrieved_slices": "s0",
+            "retrieved_slices_content": "old", "predicted_text": "old", "correct": 1,
+            "correctness_score": 0.8, "timestamp": "2026-08-07 08:00:00",
+        }],
+        index_hits={"What is displayed?": [({"id": "a.png", "question": "What is shown?"}, 0.95)]},
+    )
+    assert result["dropped"] == 1 and result["replaced"] == 0
+    df = pd.read_csv(tmp_path / "logs.csv")
+    assert len(df) == 1 and df.iloc[0]["question"] == "What is shown?"
+
+
+def test_flush_in_batch_dedup_merges_before_library(tmp_path, monkeypatch):
+    # 库为空；批内两条同图 paraphrase（高分 0.9 / 低分 0.7）→ 合并为 1 条新增
+    result, m, p = _flush_with_semantic(
+        tmp_path, monkeypatch,
+        pending_rows=[
+            _pending_rec("a.png", "What is shown?", 0.9),
+            _pending_rec("a.png", "What is displayed?", 0.7),
+        ],
+        library_rows=[],
+        threshold=2,
+    )
+    assert result["flushed"] is True
+    assert result["added"] == 1
+    assert result["in_batch_dropped"] == 1
+    df = pd.read_csv(tmp_path / "logs.csv")
+    assert len(df) == 1 and float(df.iloc[0]["correctness_score"]) == 0.9
+
+
+def test_flush_cap_evicts_lowest_and_deletes_vector(tmp_path, monkeypatch):
+    from rag.membership.log_manager import generate_log_vector_id
+    result, m, p = _flush_with_semantic(
+        tmp_path, monkeypatch,
+        pending_rows=[_pending_rec("b.png", "How many?", 0.9)],
+        library_rows=[
+            {"id": "a.png", "question": "What is shown?", "retrieved_slices": "s0",
+             "retrieved_slices_content": "old", "predicted_text": "old", "correct": 1,
+             "correctness_score": 0.5, "timestamp": "2026-08-07 08:00:00"},
+            {"id": "c.png", "question": "brand new?", "retrieved_slices": "s0",
+             "retrieved_slices_content": "old", "predicted_text": "old", "correct": 1,
+             "correctness_score": 0.7, "timestamp": "2026-08-07 09:00:00"},
+        ],
+        max_log_records=2,
+        threshold=1,
+    )
+    assert result["flushed"] is True
+    df = pd.read_csv(tmp_path / "logs.csv")
+    assert len(df) == 2  # 3 条 → 上限 2
+    assert "a.png" not in set(df["id"])  # 0.5 最低被淘汰
+    assert generate_log_vector_id("a.png", "What is shown?") in m._logs_collection.deleted

@@ -36,13 +36,16 @@ class NoopCollection:
 
 
 class FakeSliceStore:
-    """切片库 fake：get_by_ids 按 id 生成假内容"""
+    """切片库 fake：get_by_ids 按 id 生成假内容；count 返回 0（自动上限 round(1.5*0)=0 → 不设限）"""
     def get_by_ids(self, ids):
         return {
             "ids": ids,
             "documents": [f"content_of_{i}" for i in ids],
             "metadatas": [{} for _ in ids],
         }
+
+    def count(self) -> int:
+        return 0
 
 
 def load_script(name: str):
