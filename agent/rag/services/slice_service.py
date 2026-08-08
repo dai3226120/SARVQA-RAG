@@ -1,7 +1,7 @@
 """
 SAR 切片检索服务
 实现 BaseRetriever，源自原 rag_rscsv_service_rscsv.py (RscsvServiceRscsv)
-负责：基础切片向量检索（带相似度得分归一化）
+负责：基础切片向量检索（全量精确检索 + 相似度得分归一化）
 """
 import os
 import threading
@@ -11,6 +11,8 @@ from rag.stores.slice_store import SliceStore
 from rag.builders.slice_builder import SliceBuilder
 from rag.services.knowledge_service import KnowledgeRagService
 from rag.core.config import rag_config
+from rag.core.exact_index import ExactVectorIndex
+from model.factory import huggingface_embed_model
 from utils.logger_handler import logger
 
 
@@ -31,6 +33,13 @@ class SliceRetrievalService(BaseRetriever):
         self._slice_k = rag_config.slice_k
         self._top_p = rag_config.top_p
         self._enable_rag_context = rag_config.enable_rag_context
+        # 切片库全量精确检索器（faiss 暴力 top-k，替代 Chroma HNSW 近似）
+        self._slice_index = ExactVectorIndex(
+            collection=self._store.collection._collection,
+            persist_directory=rag_config.persist_directory,
+            collection_name=rag_config.slices_collection_name,
+            embedding_fn=huggingface_embed_model,
+        )
 
     def hybrid_retrieve(self, query: str, slice_k: int = None, top_p: int = None) -> str:
         """
@@ -52,10 +61,19 @@ class SliceRetrievalService(BaseRetriever):
         # ==========================================
         rag_context = self._knowledge_service.retrieve_context(query) if self._enable_rag_context else ""
 
-        slice_results = self._store.similarity_search_with_scores(query, k=slice_k)
+        # 全量精确检索（faiss IndexFlatIP，非 HNSW 近似）
+        qe = huggingface_embed_model.embed_query(query)
+        slice_results = self._slice_index.search(qe, slice_k)  # [(slice_id, score)] 降序
         if slice_results:
+            # 按 id 精确取文档内容（与 hits 顺序一致）
+            top_ids = [h[0] for h in slice_results[:top_p]]
+            got = self._store.get_by_ids(top_ids)
+            documents = got.get("documents") or []
+            metadatas = got.get("metadatas") or []
+            top_scores = [h[1] for h in slice_results[:top_p]]
+
             # 归一化相似度分数到 [0, 1]
-            raw_scores = [score for _, score in slice_results]
+            raw_scores = top_scores
             min_score = min(raw_scores) if raw_scores else -1
             max_score = max(raw_scores) if raw_scores else 1
 
@@ -65,39 +83,47 @@ class SliceRetrievalService(BaseRetriever):
                 normalized = (score - min_score) / (max_score - min_score)
                 return max(0.0, min(1.0, normalized))
 
-            # 按归一化分数排序
-            normalized_results = [
-                (doc, normalize_score(score), score) for doc, score in slice_results
-            ]
-            sorted_results = sorted(normalized_results, key=lambda x: x[1], reverse=True)
-            top_results = sorted_results[:top_p]
+            # 按归一化分数排序（与原始相似度排序一致）
+            sorted_results = sorted(
+                [
+                    (i, normalize_score(score), score)
+                    for i, score in enumerate(top_scores)
+                ],
+                key=lambda x: x[1],
+                reverse=True,
+            )
 
             # 记录检索使用的切片 ID
             SliceRetrievalService._thread_local.slice_ids = [
-                doc.metadata.get("slice_id", str(i))
-                for i, (doc, _, _) in enumerate(top_results)
+                metadatas[i].get("slice_id", top_ids[i])
+                if isinstance(metadatas[i], dict)
+                else top_ids[i]
+                for i, _, _ in sorted_results
             ]
 
             content = "\n---\n".join(
                 [
-                    f"相似度得分: {norm_score:.4f}\n{doc.page_content}"
-                    for doc, norm_score, _ in top_results
+                    f"相似度得分: {norm_score:.4f}\n{documents[i]}"
+                    for i, norm_score, _ in sorted_results
+                    if i < len(documents)
                 ]
             )
             slice_ids_str = ",".join(
                 [
-                    doc.metadata.get("slice_id", str(i))
-                    for i, (doc, _, _) in enumerate(top_results)
+                    metadatas[i].get("slice_id", top_ids[i])
+                    if isinstance(metadatas[i], dict)
+                    else top_ids[i]
+                    for i, _, _ in sorted_results
                 ]
             )
             return (
                 f"【RAG检索参考】\n{rag_context}\n\n==============================\n\n"
                 f"【匹配基础切片】(共检索{slice_k}条，"
-                f"按相似度排序后保留{len(top_results)}条)  \n{content}\n"
+                f"按相似度排序后保留{len(sorted_results)}条)  \n{content}\n"
                 f"<!-- SLICE_IDS: {slice_ids_str} -->"
             ) if rag_context else (
                 f"【匹配基础切片】(共检索{slice_k}条，"
-                f"按相似度排序后保留{len(top_results)}条)  \n{content}\n"
+                f"按相似度排序后保留{len(sorted_results)}条)  \n{content}\n"
                 f"<!-- SLICE_IDS: {slice_ids_str} -->"
             )
 

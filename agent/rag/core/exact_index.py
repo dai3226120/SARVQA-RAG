@@ -18,6 +18,10 @@ import numpy as np
 
 from utils.logger_handler import logger
 
+# faiss 默认按逻辑线程全开（如 32），小规模暴力扫描下 OpenMP 线程同步开销
+# 反超并行收益（实测 36k 条: 默认32线程 avg14ms/p95 44ms vs 8线程 avg3.7ms/p95 4.4ms）
+faiss.omp_set_num_threads(min(8, os.cpu_count() or 8))
+
 
 class ExactVectorIndex:
     """基于 faiss IndexFlatIP 的全量精确 top-k 检索器（替代 Chroma HNSW 近似）"""
