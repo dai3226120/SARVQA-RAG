@@ -230,3 +230,30 @@ def test_flush_cap_evicts_lowest_and_deletes_vector(tmp_path, monkeypatch):
     assert len(df) == 2  # 3 条 → 上限 2
     assert "a.png" not in set(df["id"])  # 0.5 最低被淘汰
     assert generate_log_vector_id("a.png", "What is shown?") in m._logs_collection.deleted
+
+
+def test_flush_embed_error_degrades_to_exact_match(tmp_path, monkeypatch):
+    """规格 §3.5 承诺：语义路径（嵌入）异常 → 降级为仅精确匹配，不阻断入库。
+
+    注入 embed_documents 抛 RuntimeError 的假 embed_fn；2 条同图不同问题 pending
+    （库为空 → 无精确重复）→ 全部按精确路径新增入库。
+    """
+    flush = load_script("flush_pending_logs")
+    m = _manager(tmp_path, monkeypatch)
+    m.log_df = pd.DataFrame([], columns=LOG_COLUMNS)  # 空库：无精确重复
+
+    class BrokenEmbed:
+        def embed_documents(self, texts):
+            raise RuntimeError("embed model down")
+
+    p = str(tmp_path / "pending.csv")
+    append_pending_record(_pending_rec("a.png", "What is shown?", 0.9), pending_path=p)
+    append_pending_record(_pending_rec("a.png", "How many?", 0.8), pending_path=p)
+
+    result = flush.run_flush(p, m, FakeSliceStore(), threshold=1, embed_fn=BrokenEmbed())
+
+    assert result["flushed"] is True
+    assert result["added"] == 2          # 降级后仅精确匹配，同图不同问题全部入库
+    assert result["in_batch_dropped"] == 0   # 批内合并因嵌入异常被整体跳过
+    df = pd.read_csv(tmp_path / "logs.csv")
+    assert len(df) == 2

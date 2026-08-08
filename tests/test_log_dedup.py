@@ -1,6 +1,5 @@
 """日志库语义去重 + 容量上限测试（同图去重规格见 docs/superpowers/specs/2026-08-09-log-dedup-cap-design.md）"""
 import pandas as pd
-import pytest
 
 from rag.core.config import rag_config
 from rag.membership.log_manager import (

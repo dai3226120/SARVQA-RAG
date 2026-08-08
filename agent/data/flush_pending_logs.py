@@ -57,7 +57,7 @@ def run_flush(pending_path, log_manager, slice_store, threshold=50,
     if pending_count < threshold:
         print(f"⏭ 暂存区记录 {pending_count} 条 < 阈值 {threshold}，跳过入库")
         return {"pending": pending_count, "added": 0, "replaced": 0,
-                "dropped": 0, "flushed": False}
+                "dropped": 0, "in_batch_dropped": 0, "flushed": False}
 
     df = pd.read_csv(pending_path)
     records = df.to_dict("records")
@@ -123,7 +123,11 @@ def run_flush(pending_path, log_manager, slice_store, threshold=50,
             log_manager.logs_collection.delete(ids=evict_ids)
             logger.info("[flush] 容量上限淘汰 %d 条并删除对应向量", len(evict_ids))
         except Exception as e:
+            # 与 upsert 失败条款同构：不清空 pending（CSV 已更新属可接受，重跑幂等——
+            # 重试时 CSV 已不再超限 → 不再触发淘汰 → 仅补 upsert，收敛）
             logger.error("[flush] 淘汰记录向量删除失败: %s", e)
+            print("⚠️ 淘汰记录向量删除失败，pending 保留待重试（CSV 已更新）")
+            return {"pending": pending_count, **stats, "flushed": False}
 
     upsert_result = log_manager.upsert_records_to_vector_db(
         merged_df.to_dict("records"), replaced_keys
