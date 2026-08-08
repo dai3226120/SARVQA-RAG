@@ -16,6 +16,7 @@ from rag.membership.vlm_evaluator import VlmEvaluator
 from rag.membership.llm_judge import LlmJudge
 from rag.stores.slice_store import SliceStore
 from rag.core.config import rag_config
+from rag.core.exact_index import ExactVectorIndex
 from utils.logger_handler import logger
 
 
@@ -45,9 +46,14 @@ class SemanticCacheSystem:
         )
         self._vlm_evaluator = VlmEvaluator()
         self._llm_judge = LlmJudge()
-        self._calculator = MembershipCalculator(
-            self._log_manager.logs_collection
+        # 日志库全量精确检索器（numpy 暴力 top-k，替代 Chroma HNSW 近似）
+        self._logs_index = ExactVectorIndex(
+            collection=self._log_manager.logs_collection._collection,
+            persist_directory=rag_config.persist_directory,
+            collection_name=rag_config.log_collection_name,
+            embedding_fn=self._log_manager._embeddings,
         )
+        self._calculator = MembershipCalculator(self._logs_index)
 
     @property
     def log_df(self) -> pd.DataFrame:

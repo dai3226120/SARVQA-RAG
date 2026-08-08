@@ -10,13 +10,13 @@ class MembershipCalculator:
     """
     隶属度计算器
     综合考虑：
-    1. 新问题与日志问题+切片的语义相似度
+    1. 新问题与日志问题+切片的语义相似度（全量精确检索，非 HNSW 近似）
     2. 日志中的正确性分数（作为该问题的可信度）
     """
 
     def __init__(
         self,
-        logs_collection,
+        logs_index,
         w1: float = None,
         w2: float = None,
         bleu_weight: float = None,
@@ -24,13 +24,13 @@ class MembershipCalculator:
     ):
         """
         Args:
-            logs_collection: 日志向量库 Chroma 集合
+            logs_index: 日志库全量精确检索器（ExactVectorIndex）
             w1: 相似度权重
             w2: 正确性分数权重
             bleu_weight: BLEU 分数权重
             overlap_weight: 词汇重叠权重
         """
-        self._collection = logs_collection
+        self._index = logs_index
         self._w1 = w1 if w1 is not None else rag_config.w1
         self._w2 = w2 if w2 is not None else rag_config.w2
 
@@ -75,13 +75,11 @@ class MembershipCalculator:
                 w1 = w1 / total
                 w2 = w2 / total
 
-        # 1. 在日志库中检索相关条目
+        # 1. 在日志库中全量精确检索相关条目
         try:
-            results = self._collection.similarity_search_with_relevance_scores(
-                query, k=k
-            )
+            results = self._index.search_text(query, k)
         except Exception as e:
-            logger.error("日志库检索失败: %s", e)
+            logger.error("日志库全量精确检索失败: %s", e)
             return self._empty_result()
 
         if not results:
@@ -95,8 +93,7 @@ class MembershipCalculator:
         qualified_memberships = []
         all_memberships = []
 
-        for doc, sim_score in results:
-            metadata = doc.metadata
+        for metadata, sim_score in results:
             correctness = float(metadata.get("correctness_score", 0.0))
             retrieved_slices = (
                 metadata.get("retrieved_slices", "").split("|")

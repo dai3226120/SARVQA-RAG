@@ -9,6 +9,8 @@ from rag.builders.slice_builder import SliceBuilder
 from rag.services.knowledge_service import KnowledgeRagService
 from rag.membership.cache_system import SemanticCacheSystem
 from rag.core.config import rag_config
+from rag.core.exact_index import ExactVectorIndex
+from model.factory import huggingface_embed_model
 from utils.logger_handler import logger
 import time
 from dataclasses import dataclass
@@ -53,6 +55,13 @@ class MembershipHybridService(BaseRetriever):
         self._builder = SliceBuilder()
         self._store = self._builder.store
         self._fit_threshold = rag_config.fit_threshold
+        # 切片库全量精确检索器（numpy 暴力 top-k，替代 Chroma HNSW 近似）
+        self._slice_index = ExactVectorIndex(
+            collection=self._store.collection._collection,
+            persist_directory=rag_config.persist_directory,
+            collection_name=rag_config.slices_collection_name,
+            embedding_fn=huggingface_embed_model,
+        )
 
         # 2. 初始化隶属度缓存系统
         self._cache_system = SemanticCacheSystem()
@@ -341,31 +350,40 @@ class MembershipHybridService(BaseRetriever):
         return None, trace_data
 
     def _retrieve_by_similarity(self, query: str, slice_k: int, top_p: int) -> tuple[str, list]:
-        """阶段 2: 基础切片检索（降级回退），返回 (结果字符串, 切片trace列表)"""
-        slice_results = self._store.similarity_search_with_scores(query, k=slice_k)
-        if slice_results:
-            sorted_results = sorted(slice_results, key=lambda x: x[1], reverse=True)
-            top_results = sorted_results[:top_p]
+        """阶段 2: 基础切片检索（降级回退，全量精确），返回 (结果字符串, 切片trace列表)"""
+        qe = huggingface_embed_model.embed_query(query)
+        hits = self._slice_index.search(qe, slice_k)  # [(slice_id, score)] 降序
+        if hits:
+            top_ids = [h[0] for h in hits[:top_p]]
+            got = self._store.get_by_ids(top_ids)  # 按 id 精确取内容
+            documents = got.get("documents") or []
+            metadatas = got.get("metadatas") or []
 
             slices_trace = [
                 {
-                    "slice_id": doc.metadata.get("slice_id", ""),
-                    "score": float(score),
+                    "slice_id": (
+                        metadatas[i].get("slice_id", "")
+                        if isinstance(metadatas[i], dict)
+                        else top_ids[i]
+                    ),
+                    "score": float(hits[i][1]),
                     "score_type": "similarity",
-                    "content": doc.page_content,
+                    "content": documents[i],
                 }
-                for doc, score in top_results
+                for i in range(len(top_ids))
+                if i < len(documents)
             ]
 
             content = "\n---\n".join(
                 [
-                    f"相似度得分: {score:.4f}\n{doc.page_content}"
-                    for doc, score in top_results
+                    f"相似度得分: {hits[i][1]:.4f}\n{documents[i]}"
+                    for i in range(len(top_ids))
+                    if i < len(documents)
                 ]
             )
             return (
                 f"【匹配基础切片】(共检索{slice_k}条，"
-                f"按相似度排序后保留{len(top_results)}条)  \n{content}",
+                f"按相似度排序后保留{len(top_ids)}条)  \n{content}",
                 slices_trace,
             )
 

@@ -19,6 +19,8 @@ if str(_ROOT) not in sys.path:
 
 class NoopCollection:
     """不落盘的 Chroma fake：记录 add/delete，get 返回空"""
+    _collection = None  # ExactVectorIndex 构造只存引用不访问，占位即可
+
     def __init__(self):
         self.calls = []
         self.deleted = []
