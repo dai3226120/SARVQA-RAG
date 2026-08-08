@@ -142,11 +142,15 @@ class ExactVectorIndex:
             if i != -1  # faiss 不足 k 条时以 -1 填充
         ]
 
-    def search_text(self, query: str, k: int) -> list[tuple[dict, float]]:
-        """嵌入 query 后全量精确检索，并取回 metadata。返回 [(metadata, score)] 降序"""
+    def search_text(self, query: str, k: int, qe=None) -> list[tuple[dict, float]]:
+        """嵌入 query 后全量精确检索，并取回 metadata。返回 [(metadata, score)] 降序
+
+        qe: 可选预嵌入向量（复用上层已计算的 query embedding，省一次嵌入排队）
+        """
         if self._embedding_fn is None:
             raise RuntimeError("[ExactVectorIndex] 未配置 embedding_fn，无法使用 search_text")
-        qe = self._embedding_fn.embed_query(query)
+        if qe is None:
+            qe = self._embedding_fn.embed_query(query)
         hits = self.search(qe, k)
         if not hits:
             return []

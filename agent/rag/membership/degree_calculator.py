@@ -37,20 +37,23 @@ class MembershipCalculator:
     def calculate(
         self,
         query: str,
-        k: int = None,
         fit_threshold: float = None,
         top_p: int = None,
         w1: float = None,
         w2: float = None,
+        qe=None,
     ) -> dict:
         """
-        计算新问题与日志中相关内容的隶属度
+        计算新问题与日志的隶属度（全量检索 → 只取隶属度最高的一条）
+
+        语义：日志库为全量精确检索（faiss 暴力扫描），相似度排序全局最优，
+        只需召回隶属度最高的一条日志；该条 ≥ 阈值即命中，直接用其存储的
+        切片内容快照召回，不做多余处理（top_p 参数保留仅为接口兼容）。
 
         Args:
             query: 新查询问题
-            k: 检索相关日志条目的数量
             fit_threshold: 隶属度阈值
-            top_p: 最多返回的合格隶属度数量
+            top_p: 保留参数
             w1: 相似度权重（运行时透传，优先于构造默认）
             w2: 正确性分数权重（运行时透传，优先于构造默认）
 
@@ -58,9 +61,7 @@ class MembershipCalculator:
             dict: 包含 membership_score / max_membership / top_logs /
                   weighted_slices / qualified_log_count / qualified_memberships
         """
-        k = k or rag_config.membership_k
         fit_threshold = fit_threshold if fit_threshold is not None else rag_config.fit_threshold
-        top_p = top_p or rag_config.top_p
 
         # 解析权重：显式传入 > 构造时默认 > 配置默认；和不为 1 自动归一化
         w1 = w1 if w1 is not None else self._w1
@@ -75,9 +76,9 @@ class MembershipCalculator:
                 w1 = w1 / total
                 w2 = w2 / total
 
-        # 1. 在日志库中全量精确检索相关条目
+        # 1. 全量精确检索日志库，只取隶属度最高的 1 条（qe 复用上层预嵌入，省一次全局锁排队）
         try:
-            results = self._index.search_text(query, k)
+            results = self._index.search_text(query, 1, qe=qe)
         except Exception as e:
             logger.error("日志库全量精确检索失败: %s", e)
             return self._empty_result()
@@ -86,83 +87,60 @@ class MembershipCalculator:
             logger.warning("未找到相关日志条目")
             return self._empty_result()
 
-        # 2. 计算加权隶属度
-        top_logs = []
-        slice_memberships = {}
-        total_membership = 0.0
-        qualified_memberships = []
-        all_memberships = []
+        # 2. 计算隶属度最高的单条日志的加权隶属度
+        metadata, sim_score = results[0]
+        correctness = float(metadata.get("correctness_score", 0.0))
+        retrieved_slices = (
+            metadata.get("retrieved_slices", "").split("|")
+            if metadata.get("retrieved_slices")
+            else []
+        )
+        # 综合隶属度：mu = w1 * similarity + w2 * correctness
+        membership = (w1 * sim_score) + (w2 * correctness)
+        qualified = membership >= fit_threshold
 
-        for metadata, sim_score in results:
-            correctness = float(metadata.get("correctness_score", 0.0))
-            retrieved_slices = (
-                metadata.get("retrieved_slices", "").split("|")
-                if metadata.get("retrieved_slices")
-                else []
-            )
+        top_log = {
+            "id": metadata.get("id", "unknown"),
+            "question": metadata.get("question", ""),
+            "similarity": float(sim_score),
+            "correctness_score": correctness,
+            "membership_degree": membership,
+            "retrieved_slices": retrieved_slices,
+            # 日志自带切片内容快照（命中后直接使用，无需再查切片库）
+            "retrieved_slices_content": metadata.get("retrieved_slices_content", ""),
+        }
 
-            # 综合隶属度：mu = w1 * similarity + w2 * correctness
-            membership = (w1 * sim_score) + (w2 * correctness)
-            total_membership += membership
-            all_memberships.append(membership)
-
-            top_logs.append({
-                "id": metadata.get("id", "unknown"),
-                "question": metadata.get("question", ""),
-                "similarity": float(sim_score),
-                "correctness_score": correctness,
-                "membership_degree": membership,
-                "retrieved_slices": retrieved_slices,
-                # 日志自带切片内容快照（策略1 直接使用，无需再查切片库）
-                "retrieved_slices_content": metadata.get("retrieved_slices_content", ""),
-            })
-
-            # 仅基于合格日志统计切片隶属度（取最高隶属度）
-            if membership >= fit_threshold:
-                qualified_memberships.append(membership)
-                for slice_id in retrieved_slices:
-                    if slice_id:
-                        if slice_id not in slice_memberships or membership > slice_memberships[slice_id]:
-                            slice_memberships[slice_id] = membership
-
-        avg_membership = total_membership / len(top_logs) if top_logs else 0.0
-        max_membership = max(all_memberships) if all_memberships else 0.0
-
-        # 对合格隶属度按降序排序，最多保留 top_p 个
-        qualified_memberships.sort(reverse=True)
-        qualified_memberships = qualified_memberships[:top_p]
-
-        # 生成加权切片列表
-        weighted_slices = [
-            {
-                "slice_id": slice_id,
-                "membership_degree": membership,
-                "normalized_membership": membership / max_membership
-                if max_membership > 0
-                else 0.0,
-            }
-            for slice_id, membership in sorted(
-                slice_memberships.items(), key=lambda x: x[1], reverse=True
-            )
-        ]
+        # 命中时，该条日志的切片即推荐切片
+        weighted_slices = (
+            [
+                {
+                    "slice_id": slice_id,
+                    "membership_degree": membership,
+                    "normalized_membership": 1.0,
+                }
+                for slice_id in retrieved_slices
+                if slice_id
+            ]
+            if qualified
+            else []
+        )
 
         logger.info(
-            "隶属度计算完成: 平均得分=%.4f, 最大得分=%.4f, "
-            "相关日志=%d条, 合格日志=%d条, 推荐切片=%d个",
-            avg_membership,
-            max_membership,
-            len(top_logs),
-            len(qualified_memberships),
+            "隶属度计算完成: 最大得分=%.4f (阈值=%.4f, 合格=%s), "
+            "相关日志=1条, 推荐切片=%d个",
+            membership,
+            fit_threshold,
+            qualified,
             len(weighted_slices),
         )
 
         return {
-            "membership_score": avg_membership,
-            "max_membership": max_membership,
-            "top_logs": top_logs,
+            "membership_score": membership,
+            "max_membership": membership,
+            "top_logs": [top_log],
             "weighted_slices": weighted_slices,
-            "qualified_log_count": len(qualified_memberships),
-            "qualified_memberships": qualified_memberships,
+            "qualified_log_count": 1 if qualified else 0,
+            "qualified_memberships": [membership] if qualified else [],
         }
 
     @staticmethod

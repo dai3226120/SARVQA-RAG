@@ -72,7 +72,6 @@ class MembershipHybridService(BaseRetriever):
         # 4. 配置参数
         self._top_p = rag_config.top_p
         self._slice_k = rag_config.slice_k
-        self._membership_k = rag_config.membership_k
 
         # 5. RAG 知识库上下文开关（通过 chroma.yml → retrieval.enable_rag_context 控制）
         self._enable_rag_context = rag_config.enable_rag_context
@@ -83,7 +82,7 @@ class MembershipHybridService(BaseRetriever):
 
     def set_runtime_params(self, **kwargs):
         """设置运行时参数覆盖（UI 在提问前调用；工具签名不变，参数经此透传）"""
-        valid = {"w1", "w2", "fit_threshold", "membership_k", "slice_k", "top_p"}
+        valid = {"w1", "w2", "fit_threshold", "slice_k", "top_p"}
         self._runtime_params = {k: v for k, v in kwargs.items() if k in valid and v is not None}
 
     def clear_runtime_params(self):
@@ -160,7 +159,6 @@ class MembershipHybridService(BaseRetriever):
         self,
         query: str,
         slice_k: int = None,
-        membership_k: int = None,
         top_p: int = None,
         fit_threshold: float = None,
         w1: float = None,
@@ -171,15 +169,15 @@ class MembershipHybridService(BaseRetriever):
 
         Args:
             query: 查询文本
-            slice_k / membership_k / top_p / fit_threshold / w1 / w2:
+            slice_k / top_p / fit_threshold / w1 / w2:
                 检索参数，显式传入 > 运行时覆盖(set_runtime_params) > 配置默认
+            （membership_k 已弃用：隶属度检索固定取全量库 top-1）
 
         Returns:
             格式化的检索结果字符串（契约不变）
         """
         # 参数解析：显式传入 > 运行时覆盖 > 配置默认
         slice_k = slice_k or self._resolve("slice_k", self._slice_k)
-        membership_k = membership_k or self._resolve("membership_k", self._membership_k)
         top_p = top_p or self._resolve("top_p", self._top_p)
         fit_threshold = fit_threshold if fit_threshold is not None else self._resolve("fit_threshold", self._fit_threshold)
         w1 = w1 if w1 is not None else self._resolve("w1", rag_config.w1)
@@ -191,7 +189,7 @@ class MembershipHybridService(BaseRetriever):
             decision="slice_fallback",
             params_used={
                 "w1": w1, "w2": w2, "fit_threshold": fit_threshold,
-                "membership_k": membership_k, "slice_k": slice_k, "top_p": top_p,
+                "slice_k": slice_k, "top_p": top_p,
             },
         )
 
@@ -206,12 +204,14 @@ class MembershipHybridService(BaseRetriever):
 
             # ==========================================
             # 阶段 1: 隶属度计算（缓存拦截与校验）
+            # 仅嵌入一次 query：命中/未命中两条路复用同一向量，避免全局嵌入锁排队翻倍
             # ==========================================
             MembershipHybridService._total_calls += 1
             MembershipHybridService._bump_session_stats(hit=False)
             t1 = time.time()
+            qe = huggingface_embed_model.embed_query(query)
             result_str, membership_trace = self._retrieve_by_membership(
-                query, membership_k, fit_threshold, top_p, w1, w2
+                query, fit_threshold, top_p, w1, w2, qe=qe
             )
             trace.membership = membership_trace
             trace.stage1_latency = (time.time() - t1) * 1000
@@ -229,10 +229,10 @@ class MembershipHybridService(BaseRetriever):
                 trace.error = "隶属度计算过程异常，已降级到基础检索"
 
             # ==========================================
-            # 阶段 2: 基础切片检索（降级回退）
+            # 阶段 2: 基础切片检索（降级回退，复用阶段1的 query 嵌入）
             # ==========================================
             t2 = time.time()
-            rscsv_result, slices_trace = self._retrieve_by_similarity(query, slice_k, top_p)
+            rscsv_result, slices_trace = self._retrieve_by_similarity(query, slice_k, top_p, qe=qe)
             trace.slices = slices_trace
             trace.stage2_latency = (time.time() - t2) * 1000
             trace.total_latency = (time.time() - total_start) * 1000
@@ -252,24 +252,24 @@ class MembershipHybridService(BaseRetriever):
         return self.hybrid_retrieve(query)
 
     def _retrieve_by_membership(
-        self, query: str, membership_k: int, fit_threshold: float, top_p: int,
-        w1: float, w2: float,
+        self, query: str, fit_threshold: float, top_p: int,
+        w1: float, w2: float, qe=None,
     ) -> tuple[str | None, dict | None]:
         """
-        阶段 1: 隶属度检索
+        阶段 1: 隶属度检索（全量检索 → 隶属度最高一条 → 阈值判定 → 直接用其切片内容召回）
+
+        qe: 预嵌入的 query 向量（复用，避免全局嵌入锁排队）
         Returns: (检索结果字符串或 None, 过程记录 dict 或 None)
         """
         trace_data = None
         try:
             membership_result = self._cache_system.calculate_membership_degree(
-                query, k=membership_k, fit_threshold=fit_threshold, top_p=top_p, w1=w1, w2=w2
+                query, fit_threshold=fit_threshold, top_p=top_p, w1=w1, w2=w2, qe=qe
             )
             max_membership = membership_result.get("max_membership", 0.0)
             qualified_log_count = membership_result.get("qualified_log_count", 0)
             qualified_memberships = membership_result.get("qualified_memberships", [])
             top_logs = membership_result.get("top_logs", [])
-
-            memberships_str = ", ".join([f"{m:.4f}" for m in qualified_memberships])
 
             trace_data = {
                 "max_membership": max_membership,
@@ -279,52 +279,38 @@ class MembershipHybridService(BaseRetriever):
                 "final_slices": [],
             }
 
-            if qualified_log_count > 0 and membership_result.get("weighted_slices"):
+            # 命中：隶属度最高一条 ≥ 阈值，且该条日志存有切片内容快照
+            # （完整返回该条日志召回的切片内容，不做硬截断）
+            if qualified_log_count > 0 and top_logs:
+                top_log = top_logs[0]
+                content = top_log.get("retrieved_slices_content", "")
                 logger.info(
-                    f"【隶属度命中】合格日志: {qualified_log_count}条，"
-                    f"隶属度(从大到小): [{memberships_str}]"
+                    f"【隶属度命中】最大隶属度: {max_membership:.4f} "
+                    f"(阈值 {fit_threshold:.2f})，命中日志: {top_log.get('id')}"
                 )
 
-                # 策略1：日志已包含切片内容快照（retrieved_slices_content），
-                # 直接按日志隶属度排序取内容，不再查切片库 get_by_ids
-                top_logs = sorted(
-                    membership_result["top_logs"],
-                    key=lambda x: x["membership_degree"],
-                    reverse=True,
-                )[:top_p]
-                doc_with_membership = [
-                    (log.get("retrieved_slices_content", ""), log["membership_degree"], log["id"])
-                    for log in top_logs
-                ]
-                doc_with_membership = [d for d in doc_with_membership if d[0]]
-
-                if doc_with_membership:
+                if content:
                     MembershipHybridService._hit_calls += 1
                     MembershipHybridService._bump_session_stats(hit=True)
 
-                    trace_data["final_slices"] = [
-                        {"slice_id": log_id, "score": score,
-                         "score_type": "membership", "content": content}
-                        for content, score, log_id in doc_with_membership
-                    ]
+                    trace_data["final_slices"] = [{
+                        "slice_id": top_log.get("id", "unknown"),
+                        "score": top_log["membership_degree"],
+                        "score_type": "membership",
+                        "content": content,
+                    }]
 
-                    content = "\n---\n".join(
-                        [
-                            f"隶属度得分: {score:.4f}\n{doc}"
-                            for doc, score, _ in doc_with_membership
-                        ]
-                    )
                     return (
-                        f"【匹配隶属度缓存】合格日志={qualified_log_count}条，"
-                        f"隶属度(从大到小): [{memberships_str}] "
-                        f"(共检索{membership_k}条，"
-                        f"按隶属度排序后保留{len(doc_with_membership)}条)  \n{content}",
+                        f"【匹配隶属度缓存】隶属度={top_log['membership_degree']:.4f} "
+                        f"(阈值 {fit_threshold:.2f})  \n"
+                        f"隶属度得分: {top_log['membership_degree']:.4f}\n{content}",
                         trace_data,
                     )
+                logger.info("【隶属度命中但内容为空】该日志无切片内容快照，降级到基础检索")
             else:
                 logger.info(
-                    f"【隶属度未命中/未达标】合格日志: {qualified_log_count}条，"
-                    f"最大隶属度: {max_membership:.4f}"
+                    f"【隶属度未命中/未达标】最大隶属度: {max_membership:.4f}，"
+                    f"阈值: {fit_threshold:.2f}"
                 )
 
         except Exception as e:
@@ -332,9 +318,13 @@ class MembershipHybridService(BaseRetriever):
 
         return None, trace_data
 
-    def _retrieve_by_similarity(self, query: str, slice_k: int, top_p: int) -> tuple[str, list]:
-        """阶段 2: 基础切片检索（降级回退，全量精确），返回 (结果字符串, 切片trace列表)"""
-        qe = huggingface_embed_model.embed_query(query)
+    def _retrieve_by_similarity(self, query: str, slice_k: int, top_p: int, qe=None) -> tuple[str, list]:
+        """阶段 2: 基础切片检索（降级回退，全量精确），返回 (结果字符串, 切片trace列表)
+
+        qe: 预嵌入的 query 向量（复用阶段1结果，未传入时才重新嵌入）
+        """
+        if qe is None:
+            qe = huggingface_embed_model.embed_query(query)
         hits = self._slice_index.search(qe, slice_k)  # [(slice_id, score)] 降序
         if hits:
             top_ids = [h[0] for h in hits[:top_p]]

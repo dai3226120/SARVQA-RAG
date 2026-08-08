@@ -8,6 +8,7 @@ VLM 评估模块
 """
 import os
 import re
+import threading
 
 from langchain_core.messages import HumanMessage
 
@@ -22,6 +23,22 @@ class VlmEvaluator:
     VLM（视觉语言模型）评估器
     职责：调用 VLM Agent 获取切片 → 调用多模态模型预测 → 评估文本相似度
     """
+
+    # 类级共享的切片检索服务（懒初始化 + 双检锁）：
+    # 每个实例首次检索会独立构建一份 ~757MB 的全量 faiss 精确索引，
+    # init_membership_logs 以 100 并发调用时若每 worker 各自 new 实例，
+    # 内存按并发线性增长（100 并发 ≈ 75GB，必 OOM）。共享单例使索引全局仅一份。
+    _shared_rscsv_service = None
+    _rscsv_service_lock = threading.Lock()
+
+    def _get_rscsv_service(self):
+        """获取类级共享的 SliceRetrievalService（线程安全懒初始化）"""
+        if VlmEvaluator._shared_rscsv_service is None:
+            with VlmEvaluator._rscsv_service_lock:
+                if VlmEvaluator._shared_rscsv_service is None:
+                    from rag.services.slice_service import SliceRetrievalService
+                    VlmEvaluator._shared_rscsv_service = SliceRetrievalService()
+        return VlmEvaluator._shared_rscsv_service
 
     def __init__(self, multimodal_llm=None):
         """
@@ -71,10 +88,8 @@ class VlmEvaluator:
         Returns:
             tuple: (score, response_text, slice_ids)
         """
-        # 阶段1：调用 RscsvServiceRscsv 获取切片
-        from rag.services.slice_service import SliceRetrievalService
-
-        rscsv_service = SliceRetrievalService()
+        # 阶段1：调用共享切片检索服务获取切片（复用单例，避免每 worker 独立构建 757MB 索引）
+        rscsv_service = self._get_rscsv_service()
         rscsv_result = rscsv_service.retrieve(question)
 
         # 从返回结果中提取切片 ID
@@ -169,33 +184,32 @@ class VlmEvaluator:
     @staticmethod
     def evaluate_text_similarity(response: str, reference: str) -> float:
         """
-        评估生成文本与参考答案的相似度
-        采用 BLEU + 词汇重叠的混合评分方式
+        评估生成文本与参考答案的语义相似度
+
+        采用与 benchmark/core/metrics.py calculate_cosine_similarity 一致的方案：
+        bge-m3 嵌入两个文本 → sklearn 余弦相似度（语义级，同义改写不再归零）。
+
+        旧实现（已弃用，仅作历史参考）：
+        BLEU + 词汇重叠的混合评分 —— 对 normalize_text 分词后的文本计算
+        nltk sentence_bleu(method1 平滑) 与 词袋重叠率，
+        score = min(1.0, bleu_weight*bleu + overlap_weight*overlap)。
+        该实现是词法级表面匹配，同义改写即归零，故替换为语义余弦。
 
         Args:
             response: 生成文本
             reference: 参考答案
 
         Returns:
-            float: 相似度得分 [0, 1]
+            float: 余弦相似度得分 [0, 1]
         """
-        from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
-
-        reference_tokens = normalize_text(reference).split()
-        response_tokens = normalize_text(response).split()
-
-        if not reference_tokens or not response_tokens:
+        if not response or not reference:
             return 0.0
+        try:
+            from model.factory import huggingface_embed_model
+            from sklearn.metrics.pairwise import cosine_similarity
 
-        smoothing = SmoothingFunction().method1
-        bleu = sentence_bleu(
-            [reference_tokens], response_tokens, smoothing_function=smoothing
-        )
-
-        overlap = len(set(reference_tokens) & set(response_tokens)) / max(
-            len(set(reference_tokens)), 1
-        )
-
-        return float(
-            min(1.0, rag_config.bleu_weight * bleu + rag_config.overlap_weight * overlap)
-        )
+            emb = huggingface_embed_model.embed_documents([response, reference])
+            return round(float(cosine_similarity([emb[0]], [emb[1]])[0][0]), 4)
+        except Exception as e:
+            logger.error(f"[VlmEvaluator] 余弦相似度计算失败: {e}")
+            return 0.0

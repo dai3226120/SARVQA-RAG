@@ -103,7 +103,7 @@ def run_compare(
     k: int = None,
 ) -> dict:
     """批量预嵌入 + 全量精确 top-k，两策略共享同一份检索结果，对比取数路径耗时"""
-    k = k or rag_config.membership_k
+    k = k or 1  # membership_k 已弃用：日志检索固定 top-1（与生产语义一致）
     raw_col = log_manager.logs_collection._collection
     embeddings = log_manager._embeddings
 
@@ -145,7 +145,7 @@ def run_compare(
 def main():
     parser = argparse.ArgumentParser(description="召回方式对比实验（全量精确检索）")
     parser.add_argument("--n", type=int, default=5000, help="查询次数")
-    parser.add_argument("--k", type=int, default=None, help="日志检索 top k（默认 rag_config.membership_k）")
+    parser.add_argument("--k", type=int, default=None, help="日志检索 top k（默认 1，与生产固定 top-1 一致）")
     parser.add_argument("--csv", default="agent/dataset_split/test.csv")
     args = parser.parse_args()
 
@@ -156,7 +156,7 @@ def main():
     slice_store = SliceStore()
     result = run_compare(queries, log_manager, slice_store, k=args.k)
 
-    k = args.k or rag_config.membership_k
+    k = args.k or 1  # membership_k 已弃用：日志检索固定 top-1（与生产语义一致）
     print(f"\n对比实验完成（{len(queries)} 次查询, top k={k}, 日志库 {result['n_logs']} 条, 全量精确检索）")
     print(f"批量嵌入: 总 {result['embed']['total']:.2f}s | 单条等效 {result['embed']['avg_per_query']*1000:.2f}ms")
     print(f"公共检索(精确top-k): 平均 {result['retrieve']['avg']:.2f}ms | P50 {result['retrieve']['p50']:.2f}ms | "

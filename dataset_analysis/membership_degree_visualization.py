@@ -35,9 +35,9 @@ else:
 # ==============================================
 # 2. 调用隶属度计算方法
 # ==============================================
+# membership_k 已弃用：calculate 固定取全量库 top-1，不再传 k
 membership_result = system.calculate_membership_degree(
     query=TARGET_QUESTION,
-    k=Config.membership_k,
     w1=Config.membership_w1,
     w2=Config.membership_w2
 )
