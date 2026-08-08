@@ -10,6 +10,7 @@ for p in (current_dir, root_dir):
         sys.path.insert(0, str(p))
 
 import base64
+import re
 # 导入LangChain 相关模块
 from langchain.agents import create_agent
 from deepagents import create_deep_agent
@@ -32,6 +33,7 @@ class MainAgent:
         self.tools = tools if tools is not None else [rag_rscsv]
         self.model = model
         self.rag_output = ""  # 累积 RAG 工具输出文本
+        self.last_slice_ids = []
 
         self.agent = create_agent(
             model=self.model if self.model is not None else doubao_seed_20_mini_model,
@@ -113,6 +115,16 @@ class MainAgent:
                     print(f"[DEBUG] Tool calls: {last_msg.tool_calls}", file=sys.stderr)
                 if hasattr(last_msg, "name") and last_msg.name:
                     print(f"[DEBUG] Tool response: {last_msg.name}", file=sys.stderr)
+
+                # 从工具返回消息中提取切片ID（检索工具输出含 SLICE_IDS 标记时生效）
+                if last_msg.type == "tool" and hasattr(last_msg, "content"):
+                    tool_content = last_msg.content if isinstance(last_msg.content, str) else str(last_msg.content)
+                    match = re.search(r'<!-- SLICE_IDS: (.*?) -->', tool_content)
+                    if match:
+                        ids_str = match.group(1).strip()
+                        if ids_str:
+                            self.last_slice_ids = ids_str.split(',')
+                            print(f"[DEBUG] Extracted slice_ids: {self.last_slice_ids}", file=sys.stderr)
 
                 # 捕获 RAG 工具输出
                 if last_msg.type == "tool" and hasattr(last_msg, "content"):
