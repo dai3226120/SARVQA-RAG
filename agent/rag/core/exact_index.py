@@ -1,23 +1,26 @@
 """
 全量精确最近邻检索器
-以 numpy 矩阵乘替代 Chroma HNSW 近似检索，返回精确 top-k（余弦相似度）。
+以 faiss IndexFlatIP（暴力精确索引）替代 Chroma HNSW 近似检索，返回精确 top-k（余弦相似度）。
 
-- 向量来源：Chroma 集合现有向量（分页导出，预归一化；query 亦归一化，余弦=点积）
+- 向量来源：Chroma 集合现有向量（分页导出，预归一化；query 亦归一化，内积=余弦）
+- 检索内核：faiss IndexFlatIP —— 全量暴力扫描 + BLAS 加速，与 numpy 矩阵乘数学等价，
+  零近似、零漏检；百万级规模下 faiss 的多线程/内存管理优于裸 numpy
 - 版本校验：sqlite 的 max_seq_id + count 组合，检测到集合写入变化自动重载
   （覆盖同进程内的新增 / upsert 删旧增新 / 全量重建；跨进程重建由进程重启覆盖）
-- 懒加载：首次查询时才导出全量向量，避免拖慢进程启动
+- 懒加载：首次查询时才导出全量向量并建索引，避免拖慢进程启动
 """
 import os
 import sqlite3
 import threading
 
+import faiss
 import numpy as np
 
 from utils.logger_handler import logger
 
 
 class ExactVectorIndex:
-    """基于 numpy 的全量精确 top-k 检索器（替代 Chroma HNSW 近似）"""
+    """基于 faiss IndexFlatIP 的全量精确 top-k 检索器（替代 Chroma HNSW 近似）"""
 
     def __init__(
         self,
@@ -39,8 +42,8 @@ class ExactVectorIndex:
         self._collection_name = collection_name
         self._embedding_fn = embedding_fn
 
-        self._matrix: np.ndarray | None = None   # 归一化向量矩阵 (N, d)
-        self._ids: np.ndarray | None = None      # 对应日志/切片 id 数组 (N,)
+        self._index: faiss.IndexFlatIP | None = None   # 精确暴力索引（归一化向量，内积=余弦）
+        self._ids: np.ndarray | None = None            # 对应日志/切片 id 数组 (N,)
         self._loaded_version: tuple = (-1, -1)
         self._lock = threading.Lock()
 
@@ -76,7 +79,7 @@ class ExactVectorIndex:
             return (-1, -1)
 
     def _load(self):
-        """分页导出集合全部向量并预归一化"""
+        """分页导出集合全部向量，归一化后构建 faiss 精确索引"""
         total = self._collection.count()
         vecs, ids = [], []
         offset = 0
@@ -87,27 +90,30 @@ class ExactVectorIndex:
             offset += 500
         if not vecs:
             logger.warning("[ExactVectorIndex] 集合 %s 无向量", self._collection_name)
-            self._matrix = np.zeros((0, 1), dtype=np.float32)
+            self._index = faiss.IndexFlatIP(1)
             self._ids = np.array([], dtype=object)
             return
-        V = np.array(vecs, dtype=np.float32)
+        V = np.ascontiguousarray(np.array(vecs, dtype=np.float32))
         norms = np.linalg.norm(V, axis=1, keepdims=True)
         norms[norms == 0] = 1.0  # 零向量兜底，避免除零
-        self._matrix = V / norms
+        V = V / norms
+
+        self._index = faiss.IndexFlatIP(V.shape[1])
+        self._index.add(V)
         self._ids = np.array(ids, dtype=object)
         logger.info(
-            "[ExactVectorIndex] %s 全量向量已加载: %d 条 (%s)",
-            self._collection_name, len(self._ids), self._matrix.shape,
+            "[ExactVectorIndex] %s 全量精确索引已构建: %d 条 (%s)",
+            self._collection_name, len(self._ids), V.shape,
         )
 
     def _ensure_loaded(self):
         """版本变化时自动重载（线程安全）"""
         version = self._version()
-        if self._matrix is not None and version == self._loaded_version:
+        if self._index is not None and version == self._loaded_version:
             return
         with self._lock:
             version = self._version()  # 锁内二次校验，避免并发重复重载
-            if self._matrix is not None and version == self._loaded_version:
+            if self._index is not None and version == self._loaded_version:
                 return
             self._load()
             self._loaded_version = version
@@ -121,15 +127,15 @@ class ExactVectorIndex:
     def search(self, query_embedding, k: int) -> list[tuple[str, float]]:
         """全量精确余弦 top-k。返回 [(id, score)] 按相似度降序，score ∈ [-1, 1]"""
         self._ensure_loaded()
-        qe = np.array(query_embedding, dtype=np.float32)
+        qe = np.ascontiguousarray(np.array(query_embedding, dtype=np.float32).reshape(1, -1))
         norm = np.linalg.norm(qe)
         if norm > 0:
             qe = qe / norm
-        scores = self._matrix @ qe
-        top_idx = np.argsort(scores)[-k:][::-1]
+        scores, idx = self._index.search(qe, k)
         return [
-            (str(self._ids[i]), float(scores[i]))
-            for i in top_idx
+            (str(self._ids[i]), float(scores[0][j]))
+            for j, i in enumerate(idx[0])
+            if i != -1  # faiss 不足 k 条时以 -1 填充
         ]
 
     def search_text(self, query: str, k: int) -> list[tuple[dict, float]]:

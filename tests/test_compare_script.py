@@ -9,6 +9,7 @@ class FakeRawCollection:
     """chromadb 底层集合 fake：少量向量 + metadata 按 id 返回"""
     def __init__(self, n=5, dim=4):
         import numpy as np
+        np.random.seed(42)  # 固定种子：随机向量下 top-k 断言确定
         self._count = n
         self._vecs = np.random.rand(n, dim).astype("float32").tolist()
         self._ids = [f"log_{i}" for i in range(n)]
@@ -100,8 +101,9 @@ def test_exact_top_k_returns_sorted_ids():
     top = mod.exact_top_k(V, ids, qe, 3)
     assert len(top) == 3
     assert all(isinstance(i, str) for i in top)
-    # 距离排序：v[0]=1 的向量得分最高，应出现在 top
-    assert "log_0" in top
+    # 与 numpy 全量参照逐位一致（归一化后分数排序的精确 top-k）
+    order = np.argsort(V @ qe)[-3:][::-1]
+    assert top == [str(ids[o]) for o in order]
 
 
 def test_run_compare_returns_winner():
