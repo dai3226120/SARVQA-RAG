@@ -10,6 +10,7 @@ import os
 import hashlib
 
 import pandas as pd
+import numpy as np
 from langchain_chroma import Chroma
 
 from rag.core.config import rag_config
@@ -38,7 +39,11 @@ def generate_log_vector_id(base_id: str, question: str) -> str:
     return f"log_{base_id}_{q_hash}"
 
 
-def merge_log_records(existing_df: pd.DataFrame, new_records: list[dict]):
+def merge_log_records(
+    existing_df: pd.DataFrame,
+    new_records: list[dict],
+    semantic_dups: dict[int, int] | None = None,
+):
     """按 图片+问题 查重合并日志记录。
 
     决策表：
@@ -47,9 +52,13 @@ def merge_log_records(existing_df: pd.DataFrame, new_records: list[dict]):
       - 存在且分数相等   → 保留时间戳更晚的一条（同分保新）
       - 存在且新分数更低 → dropped（保留旧值）
 
+    semantic_dups: 可选语义查重结果 {新记录下标: 现有行下标}——新记录是该现有行的
+    问法变体（同图高相似），按同一决策表合并；替换时 replaced_keys 携带**旧行**的
+    (id, question)（向量删除定位）。
+
     Returns:
         (merged_df, {"added": int, "replaced": int, "dropped": int}, replaced_keys)
-        replaced_keys: 实际发生替换的 (id, question) 键列表，供向量库定位删除旧向量
+        replaced_keys: 实际发生替换的旧行 (id, question) 键列表，供向量库定位删除旧向量
     """
     df = existing_df.copy()
     if df.empty:
@@ -62,31 +71,35 @@ def merge_log_records(existing_df: pd.DataFrame, new_records: list[dict]):
     stats = {"added": 0, "replaced": 0, "dropped": 0}
     replaced_keys = []
     key_to_idx = {record_key(r["id"], r["question"]): i for i, r in df.iterrows()}
+    semantic_dups = semantic_dups or {}
 
-    for rec in new_records:
+    for i, rec in enumerate(new_records):
         key = record_key(rec["id"], rec["question"])
         new_score = float(rec.get("correctness_score", 0.0))
         new_ts = str(rec.get("timestamp", ""))
 
-        if key not in key_to_idx:
+        if i in semantic_dups:
+            idx = semantic_dups[i]  # 语义重复：直接定位现有行
+        elif key in key_to_idx:
+            idx = key_to_idx[key]
+        else:
             stats["added"] += 1
             row = pd.DataFrame([{c: rec.get(c, "") for c in LOG_COLUMNS}], columns=LOG_COLUMNS)
             df = pd.concat([df, row], ignore_index=True)
             key_to_idx[key] = len(df) - 1
             continue
 
-        idx = key_to_idx[key]
         old_score = float(df.at[idx, "correctness_score"] or 0.0)
         old_ts = str(df.at[idx, "timestamp"] or "")
 
         if new_score > old_score:
             stats["replaced"] += 1
-            replaced_keys.append((rec["id"], rec["question"]))
+            replaced_keys.append((str(df.at[idx, "id"]), str(df.at[idx, "question"])))
             for c in LOG_COLUMNS:
                 df.at[idx, c] = rec.get(c, "")
         elif new_score == old_score and new_ts > old_ts:
             stats["replaced"] += 1
-            replaced_keys.append((rec["id"], rec["question"]))
+            replaced_keys.append((str(df.at[idx, "id"]), str(df.at[idx, "question"])))
             for c in LOG_COLUMNS:
                 df.at[idx, c] = rec.get(c, "")
         else:
@@ -460,3 +473,140 @@ class LogManager:
             ids.append(generate_log_vector_id(str(row["id"]), str(row["question"])))
 
         return texts, metadatas, ids
+
+
+# ====================== 语义去重与容量控制 ======================
+
+
+def dedup_in_batch(new_records: list[dict], embed_fn, sim_threshold: float = 0.92) -> list[int]:
+    """批内同图高相似合并（纯函数）。
+
+    同图记录两两比较问题级余弦相似度，≥ sim_threshold 视为问法变体：
+    保留正确率更高的一条；同分保留时间戳更新的一条；再相同保留先出现的一条。
+    空 id / 空 question 的记录不参与比较，直接保留。
+
+    Returns: 被丢弃的记录下标列表（其余记录保留）
+    """
+    if len(new_records) < 2:
+        return []
+
+    groups: dict[str, list[int]] = {}
+    for i, rec in enumerate(new_records):
+        rid = str(rec.get("id", "")).strip()
+        q = str(rec.get("question", "")).strip()
+        if rid and q:
+            groups.setdefault(rid, []).append(i)
+
+    dropped: set[int] = set()
+    for rid, idxs in groups.items():
+        if len(idxs) < 2:
+            continue
+        qs = [str(new_records[i]["question"]).strip() for i in idxs]
+        embs = np.array(embed_fn.embed_documents(qs), dtype=np.float32)
+        norms = np.linalg.norm(embs, axis=1, keepdims=True)
+        norms[norms == 0] = 1.0
+        E = embs / norms
+
+        kept = [0]  # 组内已保留的记录在 idxs 中的位置
+        for j in range(1, len(idxs)):
+            sims = np.array([float(E[j] @ E[k]) for k in kept])
+            if sims.max() < sim_threshold:
+                kept.append(j)
+                continue
+            k = kept[int(np.argmax(sims))]  # 与相似度最高的代表比较
+            rec_j, rec_k = new_records[idxs[j]], new_records[idxs[k]]
+            j_score = float(rec_j.get("correctness_score", 0.0))
+            k_score = float(rec_k.get("correctness_score", 0.0))
+            j_ts = str(rec_j.get("timestamp", ""))
+            k_ts = str(rec_k.get("timestamp", ""))
+            if j_score > k_score or (j_score == k_score and j_ts > k_ts):
+                kept.remove(k)
+                kept.append(j)
+            # 否则丢弃 j（保持现代表）
+
+        dropped.update(idxs[j] for j in range(len(idxs)) if j not in kept)
+
+    return sorted(dropped)
+
+
+def find_semantic_duplicates(
+    existing_df: pd.DataFrame,
+    new_records: list[dict],
+    logs_index,
+    embed_fn,
+    sim_threshold: float = 0.92,
+    pre_filter: float = 0.80,
+    candidate_k: int = 20,
+) -> dict[int, int]:
+    """库内语义查重：对每条新记录查找 同图片id + 问题级相似度≥阈值 的现有行。
+
+    两阶段：文档级向量检索召回候选（日志向量 = 问题+切片+回答，共享切片内容会抬高
+    分数，故仅用于召回）→ 问题级余弦相似度精确判定（避免把同图不同问题误判为重复）。
+
+    Returns: {新记录下标: 现有行下标}。空 id / 空 question / 精确匹配已存在的记录
+    不参与语义路径（精确匹配由 merge_log_records 处理）；检索异常的单条记录跳过。
+    """
+    if existing_df.empty or not new_records:
+        return {}
+
+    key_to_idx = {
+        record_key(str(r["id"]), str(r["question"])): i
+        for i, r in existing_df.iterrows()
+    }
+    dups: dict[int, int] = {}
+    for i, rec in enumerate(new_records):
+        rid = str(rec.get("id", "")).strip()
+        q = str(rec.get("question", "")).strip()
+        if not rid or not q or record_key(rid, q) in key_to_idx:
+            continue
+        try:
+            hits = logs_index.search_text(q, candidate_k)  # [(metadata, doc_sim)]
+        except Exception:
+            continue
+        cands = [
+            (m, s) for m, s in hits
+            if str(m.get("id", "")) == rid and s >= pre_filter
+        ]
+        if not cands:
+            continue
+
+        qe = np.array(embed_fn.embed_documents([q])[0], dtype=np.float32)
+        qe = qe / (np.linalg.norm(qe) + 1e-9)
+        cand_qs = [str(m.get("question", "")) for m, _ in cands]
+        ce = np.array(embed_fn.embed_documents(cand_qs), dtype=np.float32)
+        norms = np.linalg.norm(ce, axis=1, keepdims=True)
+        norms[norms == 0] = 1.0
+        ce = ce / norms
+        sims = ce @ qe
+        best = int(np.argmax(sims))
+        if float(sims[best]) >= sim_threshold:
+            m = cands[best][0]
+            key = record_key(str(m.get("id", "")), str(m.get("question", "")))
+            if key in key_to_idx:
+                dups[i] = key_to_idx[key]
+    return dups
+
+
+def enforce_log_cap(
+    df: pd.DataFrame, max_records: int
+) -> tuple[pd.DataFrame, list[tuple[str, str]]]:
+    """容量上限淘汰：超限按 (correctness_score 升序, timestamp 升序) 裁掉尾部。
+
+    max_records <= 0 表示不设上限（原样返回）。
+
+    Returns: (裁剪后 df, 被淘汰 (id, question) 键列表)——被淘汰键用于向量库删除定位
+    """
+    if max_records <= 0 or len(df) <= max_records:
+        return df, []
+    work = df.copy()
+    work["correctness_score"] = pd.to_numeric(
+        work["correctness_score"], errors="coerce"
+    ).fillna(0.0)
+    work["timestamp"] = work["timestamp"].fillna("")
+    work = work.sort_values(
+        ["correctness_score", "timestamp"], ascending=[True, True]
+    ).reset_index(drop=True)
+    evicted = work.iloc[: len(work) - max_records]
+    kept = work.iloc[len(work) - max_records:]
+    evicted_keys = [(str(r["id"]), str(r["question"])) for _, r in evicted.iterrows()]
+    return kept.reset_index(drop=True), evicted_keys
