@@ -44,6 +44,17 @@ class MainAgentClient:
         self._tool_latency_tracker_class = None
         self._thread_local = threading.local()
         self._module_path = self.AGENT_MODULES.get(agent_module_name, f"agent.{agent_module_name}")
+        # 真实检索耗时统计（基于 RetrievalTrace，线程安全累计；
+        # 替代 ToolLatencyTracker 全局无锁累加——并发下统计失真）
+        self._retrieval_lock = threading.Lock()
+        self._retrieval_total = 0.0
+        self._retrieval_count = 0
+
+    def _record_retrieval_latency(self, retrieval_latency: float):
+        """线程安全累计单次调用检索耗时（秒）"""
+        with self._retrieval_lock:
+            self._retrieval_total += retrieval_latency
+            self._retrieval_count += 1
 
     def _init_agent(self):
         """初始化 Agent 实例（线程安全）"""
@@ -160,10 +171,21 @@ class MainAgentClient:
             self.total_latency += call_latency
             self.success_count += 1
 
+            # 检索耗时优先取 RetrievalTrace（真实检索时间，毫秒→秒）；
+            # 无 trace 时回退 ToolLatencyTracker 会话值
             retrieval_latency = 0.0
-            if self._tool_latency_tracker_class:
+            trace = getattr(self.agent, "get_last_trace", lambda: None)()
+            if trace:
+                trace_total = (
+                    trace.get("total_latency", 0)
+                    if isinstance(trace, dict)
+                    else getattr(trace, "total_latency", 0)
+                )
+                retrieval_latency = float(trace_total or 0) / 1000.0
+            if retrieval_latency <= 0 and self._tool_latency_tracker_class:
                 retrieval_latency = self._tool_latency_tracker_class.get_session_retrieval_latency()
             self._thread_local.last_retrieval_latency = retrieval_latency
+            self._record_retrieval_latency(retrieval_latency)
 
             safe_print(f"[OK] Agent 调用成功 [{self.call_count}] | 耗时: {call_latency:.2f}秒 | 检索耗时: {retrieval_latency:.4f}秒")
 
@@ -293,14 +315,15 @@ class MainAgentClient:
         return getattr(self._thread_local, 'last_retrieval_latency', 0.0)
 
     def get_retrieval_latency_stats(self):
-        """获取全局检索耗时统计"""
-        if self._tool_latency_tracker_class:
-            return {
-                "total_latency": self._tool_latency_tracker_class.get_global_total_latency(),
-                "call_count": self._tool_latency_tracker_class.get_global_call_count(),
-                "avg_latency": self._tool_latency_tracker_class.get_global_avg_latency()
-            }
-        return {"total_latency": 0.0, "call_count": 0, "avg_latency": 0.0}
+        """获取真实检索耗时统计（基于 RetrievalTrace，线程安全累计）"""
+        with self._retrieval_lock:
+            total = self._retrieval_total
+            count = self._retrieval_count
+        return {
+            "total_latency": total,
+            "call_count": count,
+            "avg_latency": total / count if count > 0 else 0.0,
+        }
 
     def get_last_ig_id(self):
         """获取当前线程最后一次调用的 IG/ID（由 agent RAG 输出计算）"""

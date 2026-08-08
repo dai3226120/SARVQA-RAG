@@ -40,6 +40,11 @@ class SliceRetrievalService(BaseRetriever):
             collection_name=rag_config.slices_collection_name,
             embedding_fn=huggingface_embed_model,
         )
+        self._last_trace: dict | None = None
+
+    def get_last_trace(self) -> dict | None:
+        """获取最近一次检索的过程记录（耗时拆分，供 UI/统计展示）"""
+        return self._last_trace
 
     def hybrid_retrieve(self, query: str, slice_k: int = None, top_p: int = None) -> str:
         """
@@ -62,15 +67,28 @@ class SliceRetrievalService(BaseRetriever):
         rag_context = self._knowledge_service.retrieve_context(query) if self._enable_rag_context else ""
 
         # 全量精确检索（faiss IndexFlatIP，非 HNSW 近似）
+        import time as _time
+        _t0 = _time.perf_counter()
         qe = huggingface_embed_model.embed_query(query)
+        _t1 = _time.perf_counter()
         slice_results = self._slice_index.search(qe, slice_k)  # [(slice_id, score)] 降序
+        _t2 = _time.perf_counter()
         if slice_results:
             # 按 id 精确取文档内容（与 hits 顺序一致）
             top_ids = [h[0] for h in slice_results[:top_p]]
             got = self._store.get_by_ids(top_ids)
+            _t3 = _time.perf_counter()
             documents = got.get("documents") or []
             metadatas = got.get("metadatas") or []
             top_scores = [h[1] for h in slice_results[:top_p]]
+            self._last_trace = {
+                "total_latency": (_t3 - _t0) * 1000,
+                "stage1_latency": (_t3 - _t0) * 1000,  # 对齐 RetrievalTrace 字段（无阶段0/2）
+                "embed_latency": (_t1 - _t0) * 1000,
+                "search_latency": (_t2 - _t1) * 1000,
+                "get_latency": (_t3 - _t2) * 1000,
+                "decision": "slice_hit",
+            }
 
             # 归一化相似度分数到 [0, 1]
             raw_scores = top_scores
@@ -128,6 +146,15 @@ class SliceRetrievalService(BaseRetriever):
             )
 
         SliceRetrievalService._thread_local.slice_ids = []
+        if not slice_results:
+            self._last_trace = {
+                "total_latency": (_time.perf_counter() - _t0) * 1000,
+                "stage1_latency": (_time.perf_counter() - _t0) * 1000,
+                "embed_latency": (_t1 - _t0) * 1000,
+                "search_latency": (_t2 - _t1) * 1000,
+                "get_latency": 0.0,
+                "decision": "slice_miss",
+            }
         no_result = "未检索到相关遥感问答参考资料。\n<!-- SLICE_IDS: -->"
         if rag_context:
             return f"【RAG检索参考】\n{rag_context}\n\n==============================\n\n{no_result}"

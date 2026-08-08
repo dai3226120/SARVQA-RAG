@@ -1,4 +1,5 @@
 import os
+import threading
 # Windows 下 pyarrow(pandas 间接依赖) 先加载会导致 ortools DLL 加载失败(WinError 127)。
 # 各入口脚本已在 pandas 之前导入 k_means_constrained；此处再兜底一次，
 # 保证本模块(权重加载源头)导入时 ortools 扩展 DLL 已在进程内。
@@ -7,6 +8,26 @@ try:
 except ImportError:
     pass  # 无该依赖时跳过（仅失去顺序保护）
 from abc import ABC, abstractmethod
+
+
+class _ThreadSafeEmbeddings:
+    """线程安全包装：GPU 嵌入推理本质串行，并发调用会导致严重退化
+    （实测 6 并发下单调用 15~25ms → 110ms），加全局锁让调用排队而非退化。"""
+
+    def __init__(self, inner):
+        self._inner = inner
+        self._lock = threading.Lock()
+
+    def embed_query(self, text):
+        with self._lock:
+            return self._inner.embed_query(text)
+
+    def embed_documents(self, texts):
+        with self._lock:
+            return self._inner.embed_documents(texts)
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
 from typing import Optional
 from langchain_core.embeddings import Embeddings
 from langchain_community.chat_models.tongyi import BaseChatModel
@@ -143,7 +164,9 @@ class InternVL35ModelFactory(BaseModelFactory):
 # 在模块加载时创建模型实例，供其他模块使用
 chat_model = ChatModelFactory().generate()        # 通义千问聊天模型
 embed_model = EmbeddingsFactory().generate()      # DashScope 嵌入模型
-huggingface_embed_model = HuggingFaceEmbeddingsFactory().generate()  # HuggingFace 嵌入模型
+huggingface_embed_model = _ThreadSafeEmbeddings(  # 线程安全包装：消除 GPU 嵌入并发退化
+    HuggingFaceEmbeddingsFactory().generate()
+)  # HuggingFace 嵌入模型
 doubao_seed_20_mini_model = DoubaoSeed20MiniModelFactory().generate()  # 多模态模型
 internvl2_8b_model = InternVL2ModelFactory().generate()  # 图像识别模型
 internvl3_5_8b_model = InternVL35ModelFactory().generate()  # 图像识别模型
