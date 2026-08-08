@@ -19,21 +19,14 @@ chunk_size: 500 # 从 200 放大到 500，保证专业学术段落、公式、�
 chunk_overlap: 50 # 保持 10% 左右的重叠度，防止边缘信息丢失
 separators: ["\n\n", "\n", " ", ""] # 💡 移除 . 和 !，引入空格，完美适配英文语料切片，防止专业术语/浮点数被切断
 
-# 以下是你原有的高级聚类与重排配置，保持原样：
+# 以下是你原有的高级聚类配置，保持原样：
 clustering:
   n_clusters: 50
   slice_size: 5
 
-fit_degree:
-  sigma: 0.2
-  update_table: true
-
 collections:
   slices: "sar_slices_collection"
-  fit_degree: "sar_fit_degree_collection"
 
 retrieval:
-  hybrid: true
   fit_threshold: 0.65
-  re_rank_by_fit: true
   enable_rag_context: false   # 是否在混合检索阶段 0 启用 RAG 知识库向量检索

@@ -39,12 +39,10 @@ class RagConfig:
 
     # ── 贴合度参数 ──
     fit_threshold: float = float(chroma_conf.get("retrieval", {}).get("fit_threshold", 0.75))
-    fit_sigma: float = float(chroma_conf.get("fit_degree", {}).get("sigma", 0.2))
     enable_rag_context: bool = bool(chroma_conf.get("retrieval", {}).get("enable_rag_context", True))
 
     # ── 向量库集合名 ──
     slices_collection_name: str = chroma_conf.get("collections", {}).get("slices", "sar_slices_collection")
-    fit_degree_collection_name: str = chroma_conf.get("collections", {}).get("fit_degree", "sar_fit_degree_collection")
 
     # ── MD5 记录文件 ──
     md5_store_path: str = get_abs_path(chroma_conf.get("md5_hex_store", "agent/md5.text"))
