@@ -128,7 +128,8 @@ def process_vqa_data(
         for completed_count, future in enumerate(concurrent.futures.as_completed(future_to_row), start=1):
             idx, row = future_to_row[future]
             try:
-                result_item = future.result()
+                # 单条超时兜底：LLM 请求异常挂起时标记失败继续，避免冻结整个流水线
+                result_item = future.result(timeout=300)
                 if result_item is not None:
                     results.append(result_item)
 

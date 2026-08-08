@@ -101,6 +101,9 @@ class DoubaoSeed20MiniModelFactory(BaseModelFactory):
             api_key=os.environ.get('DOUBAO_SEED_API_KEY') or model_conf.get('doubao_seed_api_key', ''),
             base_url=model_conf['doubao_seed_api_endpoint'],
             temperature=float(os.environ.get('DOUBAO_SEED_TEMPERATURE') or model_conf.get('doubao_seed_temperature', 0.7)),
+            # 请求超时：API 挂起时终止等待（否则单条挂起会冻结整个 as_completed 流水线）
+            timeout=120,
+            max_retries=1,
             extra_body={"thinking": {"type": model_conf['doubao_seed_thinking_mode']}},
         )
 
