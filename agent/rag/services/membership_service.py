@@ -1,20 +1,197 @@
 """
 隶属度混合检索服务
 实现 BaseRetriever，源自原 rag_rscsv_service.py (RscsvService)
-负责：RAG 向量检索 → 隶属度优先检索 → 基础切片降级 → 结果合并
+负责：RAG 向量检索 → 隶属度优先检索（类别中心+Softmax）→ 基础切片降级 → 结果合并
 """
 from rag.base.retriever import BaseRetriever
 from rag.stores.slice_store import SliceStore
 from rag.builders.slice_builder import SliceBuilder
 from rag.services.knowledge_service import KnowledgeRagService
 from rag.services.slice_service import retrieve_basic_slices
-from rag.membership.cache_system import SemanticCacheSystem
 from rag.core.config import rag_config
 from rag.core.exact_index import ExactVectorIndex
 from model.factory import huggingface_embed_model
 from utils.logger_handler import logger
 import time
+import numpy as np
 from dataclasses import dataclass
+
+
+def _softmax_membership(r: np.ndarray, temperature: float) -> np.ndarray:
+    """
+    步骤2+3: query 与各类别中心余弦 → 原始得分 r_C；Softmax(r/τ) 映射为隶属度 μ_C
+    μ_C ∈ [0,1] 且 Σμ = 1；τ 越小分布越尖锐
+    """
+    x = np.asarray(r, dtype=np.float64) / temperature
+    x = x - np.max(x)  # 数值稳定（max 平移不改变 softmax 结果）
+    e = np.exp(x)
+    return e / e.sum()
+
+
+def retrieve_membership_slices(slice_index, store, query: str, slice_k: int, qe=None,
+                               fit_threshold=None, temperature=None) -> dict:
+    """
+    隶属度检索内核（类别中心平均 + Softmax 映射，算法唯一实现点）
+    供 MembershipHybridService 阶段1 使用；后续改造隶属度算法只需修改本函数
+
+    算法：
+      1. 类别中心：每类切片向量平均 → 归一化（版本绑定缓存，切片库手动更新后自动重算）
+      2. query 与各中心余弦相似度 → 原始得分 r_C
+      3. Softmax(r/τ) 归一化为隶属度 μ_C（Σμ=1），τ 取 temperature
+      4. μ_C ≥ fit_threshold 的类别构成归属集合 S
+      5. S 内全部切片按与 query 的余弦相似度取 top slice_k，不足 slice_k 全给
+      S 为空集 → hit=False（降级由调用方编排决定，本函数不内置降级）
+
+    Args:
+        slice_index: ExactVectorIndex 全量精确检索器
+        store: SliceStore（按 id 精确取文档内容）
+        query: 查询文本
+        slice_k: 归属类内返回的切片数量（检索多少就送多少，全部保留）
+        qe: 预嵌入的 query 向量（复用上游结果时传入，None 时内部嵌入）
+        fit_threshold: 归属阈值（None 时取 config/chroma.yml → retrieval.fit_threshold）
+        temperature: Softmax 温度系数 τ（None 时取 config/chroma.yml → retrieval.temperature）
+
+    Returns:
+        dict: {
+            "result_str": 格式化切片检索结果字符串（不含 SLICE_IDS 标记与 RAG 前缀）
+            "slices_trace": [{slice_id, score(归一化), score_type, content}]，按归一化分数降序
+            "hit": 是否命中（S 非空）
+            "membership": {
+                "max_membership": 最大隶属度 μ_max,
+                "belong_clusters": [{cluster_id, center_sim, mu, slice_count}, ...]（S 内类别明细）
+            }
+            "timing": {"embed_latency", "search_latency", "get_latency", "total_latency"}（ms）
+        }
+    """
+    # 参数解析：显式传入 > 配置默认
+    fit_threshold = rag_config.fit_threshold if fit_threshold is None else fit_threshold
+    temperature = rag_config.temperature if temperature is None else temperature
+
+    # 嵌入 query
+    _t0 = time.perf_counter()
+    if qe is None:
+        qe = huggingface_embed_model.embed_query(query)
+    _t1 = time.perf_counter()
+
+    # 类别中心归属判定（类别中心为版本绑定缓存：切片库手动更新后版本变化自动重算）
+    V, ids, metas_all = slice_index.get_all()
+    centers, uniq = slice_index.get_cluster_centers()
+    if centers is None:
+        _t2 = time.perf_counter()
+        return {
+            "result_str": "未检索到相关遥感问答参考资料。",
+            "slices_trace": [],
+            "hit": False,
+            "membership": {"max_membership": 0.0, "belong_clusters": []},
+            "timing": {
+                "total_latency": (time.perf_counter() - _t0) * 1000,
+                "embed_latency": (_t1 - _t0) * 1000,
+                "search_latency": (_t2 - _t1) * 1000,
+                "get_latency": 0.0,
+            },
+        }
+
+    q_norm = np.asarray(qe, dtype=np.float64)
+    q_norm = q_norm / (np.linalg.norm(q_norm) + 1e-9)
+    r = centers @ q_norm  # (K,) query 与各类别中心的余弦相似度
+    mu = _softmax_membership(r, temperature)
+    belong_idx = np.flatnonzero(mu >= fit_threshold)
+    _t2 = time.perf_counter()
+
+    if not len(belong_idx):
+        # 未命中（S 为空集）：不做类内检索，也不取每切片类别数组（省 get_cluster_ids）
+        return {
+            "result_str": "未检索到相关遥感问答参考资料。",
+            "slices_trace": [],
+            "hit": False,
+            "membership": {"max_membership": float(mu.max()), "belong_clusters": []},
+            "timing": {
+                "total_latency": (time.perf_counter() - _t0) * 1000,
+                "embed_latency": (_t1 - _t0) * 1000,
+                "search_latency": (_t2 - _t1) * 1000,
+                "get_latency": 0.0,
+            },
+        }
+
+    # 命中：S 内全部切片按余弦取 top slice_k（不足全给）
+    # 一次遍历同时构建归属类别明细与类内掩码（仅命中路径取每切片类别数组）
+    cluster_ids = slice_index.get_cluster_ids()
+    belong_clusters = []
+    sel = np.zeros(len(cluster_ids), dtype=bool)
+    for i in belong_idx:
+        c_mask = cluster_ids == uniq[i]
+        belong_clusters.append({
+            "cluster_id": int(uniq[i]),
+            "center_sim": float(r[i]),
+            "mu": float(mu[i]),
+            "slice_count": int(c_mask.sum()),
+        })
+        sel |= c_mask
+    scores = V[sel] @ q_norm
+    order = np.argsort(-scores)[:slice_k]
+    slice_results = [(str(ids[sel][i]), float(scores[i])) for i in order]
+
+    # 按 id 精确取文档内容；检索多少就送多少，全部保留
+    top_ids = [h[0] for h in slice_results]
+    got = store.get_by_ids(top_ids)
+    _t3 = time.perf_counter()
+    documents = got.get("documents") or []
+    metadatas = got.get("metadatas") or []
+
+    # 归一化相似度分数到 [0, 1]（min-max，保持原始降序）
+    raw_scores = [h[1] for h in slice_results]
+    min_score = min(raw_scores) if raw_scores else -1
+    max_score = max(raw_scores) if raw_scores else 1
+
+    def normalize_score(score: float) -> float:
+        if max_score == min_score:
+            return 0.5 if max_score > 0 else 0.0
+        normalized = (score - min_score) / (max_score - min_score)
+        return max(0.0, min(1.0, normalized))
+
+    sorted_results = sorted(
+        [
+            (i, normalize_score(score), score)
+            for i, score in enumerate(raw_scores)
+        ],
+        key=lambda x: x[1],
+        reverse=True,
+    )
+    slices_trace = [
+        {
+            "slice_id": (
+                metadatas[i].get("slice_id", top_ids[i])
+                if isinstance(metadatas[i], dict)
+                else top_ids[i]
+            ),
+            "score": norm_score,
+            "score_type": "membership",
+            "content": documents[i],
+        }
+        for i, norm_score, _ in sorted_results
+        if i < len(documents)
+    ]
+    content = "\n---\n".join(
+        [
+            f"相似度得分: {norm_score:.4f}\n{documents[i]}"
+            for i, norm_score, _ in sorted_results
+            if i < len(documents)
+        ]
+    )
+    return {
+        "result_str": f"【匹配语境分类】隶属度={float(mu.max()):.4f} "
+                      f"(阈值 {fit_threshold:.2f})  \n"
+                      f"隶属度得分: {float(mu.max()):.4f}\n{content}",
+        "slices_trace": slices_trace,
+        "hit": True,
+        "membership": {"max_membership": float(mu.max()), "belong_clusters": belong_clusters},
+        "timing": {
+            "total_latency": (_t3 - _t0) * 1000,
+            "embed_latency": (_t1 - _t0) * 1000,
+            "search_latency": (_t2 - _t1) * 1000,
+            "get_latency": (_t3 - _t2) * 1000,
+        },
+    }
 
 
 @dataclass
@@ -39,8 +216,8 @@ class MembershipHybridService(BaseRetriever):
     隶属度混合检索服务
     三阶段检索：
       阶段 0: RAG 向量检索（通用知识库）
-      阶段 1: 隶属度计算（日志缓存 + 阈值校验）
-      阶段 2: 隶属度不达标时，降级为基础切片检索
+      阶段 1: 隶属度计算（类别中心 + Softmax 映射，归属语境分类检索）
+      阶段 2: fit_threshold 未命中时，降级为全量切片库检索
     """
 
     # ── 类级共享统计（所有实例共享，兼容旧 RscsvService 接口）──
@@ -64,10 +241,7 @@ class MembershipHybridService(BaseRetriever):
             embedding_fn=huggingface_embed_model,
         )
 
-        # 2. 初始化隶属度缓存系统
-        self._cache_system = SemanticCacheSystem()
-
-        # 3. 初始化知识库 RAG 总结服务
+        # 2. 初始化知识库 RAG 总结服务
         self._knowledge_service = KnowledgeRagService()
 
         # 4. 配置参数
@@ -79,6 +253,13 @@ class MembershipHybridService(BaseRetriever):
         # 6. 运行时参数覆盖（UI 滑杆设置；retrieve 合并后生效，不写配置文件）
         self._runtime_params: dict = {}
         self._last_trace: RetrievalTrace | None = None
+
+        # 7. 预热类别中心（阶段1 隶属度算法用；提前计算一次，
+        #    切片库手动更新后版本变化自动重算，无需重启）
+        try:
+            self._slice_index.get_cluster_centers()
+        except Exception as e:
+            logger.warning(f"[MembershipHybridService] 类别中心预热失败，将按需计算: {e}")
 
     def set_runtime_params(self, **kwargs):
         """设置运行时参数覆盖（UI 在提问前调用；工具签名不变，参数经此透传）"""
@@ -202,7 +383,7 @@ class MembershipHybridService(BaseRetriever):
             trace.stage0_latency = (time.time() - t0) * 1000
 
             # ==========================================
-            # 阶段 1: 隶属度计算（封装在 _retrieve_by_membership）
+            # 阶段 1: 隶属度计算（封装在 _retrieve_by_membership，类别中心+Softmax 算法）
             # 仅嵌入一次 query：命中/未命中两条路复用同一向量，避免全局嵌入锁排队翻倍
             # ==========================================
             MembershipHybridService._total_calls += 1
@@ -210,7 +391,7 @@ class MembershipHybridService(BaseRetriever):
             t1 = time.time()
             qe = self._embed_query(query)
             result_str, membership_trace = self._retrieve_by_membership(
-                query, fit_threshold, w1, w2, qe=qe
+                query, fit_threshold, w1, w2, slice_k, qe=qe
             )
             trace.membership = membership_trace
             trace.stage1_latency = (time.time() - t1) * 1000
@@ -266,65 +447,48 @@ class MembershipHybridService(BaseRetriever):
 
     def _retrieve_by_membership(
         self, query: str, fit_threshold: float,
-        w1: float, w2: float, qe=None,
+        w1: float, w2: float, slice_k: int, qe=None, temperature=None,
     ) -> tuple[str | None, dict | None]:
         """
-        阶段 1: 隶属度检索（全量检索 → 隶属度最高一条 → 阈值判定 → 直接用其切片内容召回）
+        阶段 1: 隶属度检索（类别中心平均 + Softmax 映射，统一内核 retrieve_membership_slices）
+        命中：μ_max ≥ fit_threshold（归属类非空）→ 返回归属类内 top slice_k 切片内容
+        未命中/异常：返回 (None, trace_data)，由编排层降级到阶段 2 全量切片检索
 
+        w1/w2: 已不参与隶属度计算（保留参数以兼容调用方接口与 trace 记录）
         qe: 预嵌入的 query 向量（复用，避免全局嵌入锁排队）
         Returns: (检索结果字符串或 None, 过程记录 dict 或 None)
         """
         trace_data = None
         try:
-            membership_result = self._cache_system.calculate_membership_degree(
-                query, fit_threshold=fit_threshold, w1=w1, w2=w2, qe=qe
+            data = retrieve_membership_slices(
+                self._slice_index, self._store, query, slice_k,
+                qe=qe, fit_threshold=fit_threshold, temperature=temperature,
             )
-            max_membership = membership_result.get("max_membership", 0.0)
-            qualified_log_count = membership_result.get("qualified_log_count", 0)
-            qualified_memberships = membership_result.get("qualified_memberships", [])
-            top_logs = membership_result.get("top_logs", [])
+            membership = data["membership"]
+            max_membership = membership["max_membership"]
+            belong_clusters = membership["belong_clusters"]
 
+            # trace 字段与 UI 契约对齐：qualified_log_count 语义变为归属类别数
             trace_data = {
                 "max_membership": max_membership,
-                "qualified_log_count": qualified_log_count,
-                "qualified_memberships": qualified_memberships,
-                "top_logs": top_logs,
-                "final_slices": [],
+                "qualified_log_count": len(belong_clusters),
+                "top_logs": belong_clusters,  # 类别明细（替代原日志明细）
+                "final_slices": data["slices_trace"] if data["hit"] else [],
             }
 
-            # 命中：隶属度最高一条 ≥ 阈值，且该条日志存有切片内容快照
-            # （完整返回该条日志召回的切片内容，不做硬截断）
-            if qualified_log_count > 0 and top_logs:
-                top_log = top_logs[0]
-                content = top_log.get("retrieved_slices_content", "")
+            if data["hit"]:
+                MembershipHybridService._hit_calls += 1
+                MembershipHybridService._bump_session_stats(hit=True)
                 logger.info(
-                    f"【隶属度命中】最大隶属度: {max_membership:.4f} "
-                    f"(阈值 {fit_threshold:.2f})，命中日志: {top_log.get('id')}"
+                    f"【隶属度命中】max μ={max_membership:.4f} ≥ {fit_threshold:.2f}，"
+                    f"归属 {len(belong_clusters)} 个语境分类"
                 )
+                return data["result_str"], trace_data
 
-                if content:
-                    MembershipHybridService._hit_calls += 1
-                    MembershipHybridService._bump_session_stats(hit=True)
-
-                    trace_data["final_slices"] = [{
-                        "slice_id": top_log.get("id", "unknown"),
-                        "score": top_log["membership_degree"],
-                        "score_type": "membership",
-                        "content": content,
-                    }]
-
-                    return (
-                        f"【匹配隶属度缓存】隶属度={top_log['membership_degree']:.4f} "
-                        f"(阈值 {fit_threshold:.2f})  \n"
-                        f"隶属度得分: {top_log['membership_degree']:.4f}\n{content}",
-                        trace_data,
-                    )
-                logger.info("【隶属度命中但内容为空】该日志无切片内容快照，降级到基础检索")
-            else:
-                logger.info(
-                    f"【隶属度未命中/未达标】最大隶属度: {max_membership:.4f}，"
-                    f"阈值: {fit_threshold:.2f}"
-                )
+            logger.info(
+                f"【隶属度未命中/未达标】max μ={max_membership:.4f} < "
+                f"{fit_threshold:.2f}，降级到全量切片检索"
+            )
 
         except Exception as e:
             logger.error(f"隶属度计算过程发生异常，降级到基础检索: {str(e)}")
@@ -332,9 +496,9 @@ class MembershipHybridService(BaseRetriever):
         return None, trace_data
 
     def _retrieve_by_similarity(self, query: str, slice_k: int, qe=None) -> tuple[str, list]:
-        """阶段 2: 基础切片检索（降级回退，统一内核 retrieve_basic_slices）
+        """阶段 2: 全量切片库检索（阶段1 fit_threshold 未命中时降级）
 
-        与 slice_service 阶段 1 共用同一检索实现（后续改造检索算法只改内核一处）；
+        与 slice_service 阶段 1 共用同一检索内核（全量精确检索）；
         qe: 预嵌入的 query 向量（复用阶段1结果，None 时由内核嵌入）
         检索多少就送多少：slice_k 条候选全部保留
         """

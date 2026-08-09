@@ -224,22 +224,20 @@ def render_trace(trace: dict):
     if m:
         with st.expander(f"阶段1 隶属度 · {trace.get('stage1_latency', 0):.0f}ms"):
             st.markdown(
-                f"合格日志 **{m.get('qualified_log_count')}** 条，"
+                f"归属语境分类 **{m.get('qualified_log_count')}** 个，"
                 f"max μ = **{m.get('max_membership', 0.0):.4f}**"
             )
-            logs = m.get("top_logs") or []
-            if logs:
+            clusters = m.get("top_logs") or []
+            if clusters:
                 st.dataframe(
                     [
                         {
-                            "id": log.get("id"),
-                            "历史问题": (log.get("question") or "")[:60],
-                            "sim": round(log.get("similarity", 0.0), 4),
-                            "correct": round(log.get("correctness_score", 0.0), 4),
-                            "μ": round(log.get("membership_degree", 0.0), 4),
-                            "切片数": len(log.get("retrieved_slices") or []),
+                            "类别": c.get("cluster_id"),
+                            "中心相似度": round(c.get("center_sim", 0.0), 4),
+                            "μ": round(c.get("mu", 0.0), 4),
+                            "类内切片数": c.get("slice_count", 0),
                         }
-                        for log in logs
+                        for c in clusters
                     ],
                     use_container_width=True,
                     hide_index=True,

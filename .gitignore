@@ -22,3 +22,8 @@ dataset_split/
 dataset_analysis/dataset_analysis_result/
 dataset_analysis/origin_dataset/
 dataset_analysis/*.csv
+unused/chroma.sqlite3
+unused/117ca640-594f-41ae-a4f6-a07b589de15f/data_level0.bin
+unused/117ca640-594f-41ae-a4f6-a07b589de15f/header.bin
+unused/117ca640-594f-41ae-a4f6-a07b589de15f/length.bin
+unused/117ca640-594f-41ae-a4f6-a07b589de15f/link_lists.bin

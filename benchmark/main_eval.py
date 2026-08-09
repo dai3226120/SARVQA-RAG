@@ -62,8 +62,8 @@ from utils.print_utils import print_separator
 #     - agent-text-internVL_rscsv: 文本InternVL模型（RSCSV）
 
 # MODEL_KEY = "doubao-seed"
-# MODEL_KEY = "agent-text-doubao-seed"
-MODEL_KEY = "agent-text-doubao-seed_rscsv"
+MODEL_KEY = "agent-text-doubao-seed"
+# MODEL_KEY = "agent-text-doubao-seed_rscsv"
 
 # MODEL_KEY = "internVL"
 # MODEL_KEY = "agent-text-internVL"
@@ -143,7 +143,7 @@ IMAGE_BASE_PATH = cfg.path_config.IMAGE_BASE_PATH
 # ====================== 数据处理参数（可在此处直接修改）======================
 MAX_PROCESS_ROWS = 20000
 START_ROW = 0
-MAX_WORKERS = 50
+MAX_WORKERS = 10  # 降并发规避 API 限流重试（实测 50 并发触发限流，37s/次 → 10 并发 10s/次）
 BATCH_SAVE_THRESHOLD = 100
 
 # ====================== 分析参数 ======================

@@ -38,11 +38,15 @@ class RagConfig:
     slice_size: int = int(chroma_conf.get("clustering", {}).get("slice_size", 5))
 
     # ── 贴合度参数 ──
-    fit_threshold: float = float(chroma_conf.get("retrieval", {}).get("fit_threshold", 0.75))
+    fit_threshold: float = float(chroma_conf.get("retrieval", {}).get("fit_threshold", 0.5))
+    # 类别中心 Softmax 温度系数 τ（隶属度检索算法用，越小分布越尖锐）
+    temperature: float = float(chroma_conf.get("retrieval", {}).get("temperature", 0.02))
     enable_rag_context: bool = bool(chroma_conf.get("retrieval", {}).get("enable_rag_context", True))
 
     # ── 向量库集合名 ──
     slices_collection_name: str = chroma_conf.get("collections", {}).get("slices", "sar_slices_collection")
+    # 类别中心持久化集合（隶属度检索算法用；切片库重建时才重算写回）
+    cluster_centers_collection_name: str = chroma_conf.get("collections", {}).get("cluster_centers", "sar_cluster_centers")
 
     # ── MD5 记录文件 ──
     md5_store_path: str = get_abs_path(chroma_conf.get("md5_hex_store", "agent/md5.text"))

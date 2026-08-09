@@ -19,8 +19,8 @@ from utils.logger_handler import logger
 
 def retrieve_basic_slices(slice_index, store, query: str, slice_k: int, qe=None) -> dict:
     """
-    基础切片检索统一内核（相似度检索算法唯一实现点）
-    供 SliceRetrievalService 阶段1 与 MembershipHybridService 阶段2 复用；
+    基础切片检索统一内核（全量精确检索算法唯一实现点）
+    供 SliceRetrievalService 阶段1 与 MembershipHybridService 阶段2（降级）复用；
     后续改造检索算法只需修改本函数，两个阶段同步生效
 
     Args:

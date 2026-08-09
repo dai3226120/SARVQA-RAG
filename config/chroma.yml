@@ -34,9 +34,11 @@ clustering:
 
 collections:
   slices: "sar_slices_collection"
+  cluster_centers: "sar_cluster_centers"   # 类别中心持久化集合（切片库重建时才重算写回）
 
 retrieval:
-  fit_threshold: 0.65
+  fit_threshold: 0.25   # 隶属度归属阈值（阶段1 μ_C ≥ 此值则归属该语境分类；60条实测分布 0.25→命中率72%）
+  temperature: 0.02   # 类别中心 Softmax 温度系数 τ（越小分布越尖锐；500 类库实测 0.1 过平，取 0.02）
   enable_rag_context: false   # 是否在混合检索阶段 0 启用 RAG 知识库向量检索
 
 # 日志库语义去重与容量控制（flush_pending_logs.py 入库时生效）

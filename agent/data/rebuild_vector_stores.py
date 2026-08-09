@@ -37,9 +37,11 @@ import pandas as pd
 
 from rag.core.config import rag_config
 from rag.core.chroma_manager import ChromaManager
+from rag.core.exact_index import ExactVectorIndex
 from model.factory import huggingface_embed_model
 from rag.stores.slice_store import SliceStore
 from rag.membership.log_manager import LogManager
+from utils.file_handler import get_file_md5_hex
 from utils.logger_handler import logger
 
 
@@ -58,13 +60,29 @@ def _clear_and_rebuild(collection_name: str) -> ChromaManager:
     return mgr
 
 
-def rebuild_slices() -> dict:
-    """切片库：清空集合 → 用现有 sar_slices.csv 重嵌入（不重新生成切片表）"""
+def rebuild_slices(force: bool = False) -> dict:
+    """切片库：md5 检测 → 源文件变化才清空集合并用 sar_slices.csv 重嵌入；
+    重建后重算类别中心并持久化（隶属度算法使用，进程重启不重复计算）"""
     start = time.time()
     print("\n=== 重建切片库 ===")
     csv_path = rag_config.slice_csv_path
     if not os.path.exists(csv_path):
         raise FileNotFoundError(f"切片表不存在: {csv_path}")
+
+    csv_md5 = get_file_md5_hex(csv_path)
+    index = ExactVectorIndex(
+        collection=SliceStore().collection._collection,
+        persist_directory=rag_config.persist_directory,
+        collection_name=rag_config.slices_collection_name,
+        embedding_fn=huggingface_embed_model,
+    )
+
+    # md5 检测：切片库源文件未变化且未强制 → 跳过重建，类别中心沿用持久化数据
+    persisted_md5 = index.get_persisted_source_md5()
+    if not force and persisted_md5 == csv_md5:
+        print(f"⏭️  切片库文件 md5 未变化（{csv_md5[:8]}...），跳过重建；"
+              f"类别中心沿用持久化数据")
+        return {"name": "slices", "total": 0, "added": 0, "skipped": True}
 
     df = pd.read_csv(csv_path, encoding="utf-8-sig")
     df["slice_content"] = df["slice_content"].fillna("")
@@ -81,6 +99,19 @@ def rebuild_slices() -> dict:
         desc="重建切片库",
     )
     print(f"✅ 切片库重建完成: {added}/{len(df)} 条, 耗时 {time.time()-start:.1f} 秒")
+
+    # 重建后重算类别中心并持久化（带源文件 md5，供下次 md5 检测）。
+    # 注意：必须先重新连接新集合——旧 store/index 指向已被删除重建的集合
+    new_store = SliceStore()
+    new_index = ExactVectorIndex(
+        collection=new_store.collection._collection,
+        persist_directory=rag_config.persist_directory,
+        collection_name=rag_config.slices_collection_name,
+        embedding_fn=huggingface_embed_model,
+    )
+    centers, uniq = new_index.refresh_cluster_centers(source_md5=csv_md5)
+    print(f"✅ 类别中心已重算并持久化: {len(uniq)} 个语境分类, "
+          f"耗时 {time.time()-start:.1f} 秒")
     return {"name": "slices", "total": len(df), "added": added}
 
 
@@ -146,6 +177,8 @@ def main():
     parser = argparse.ArgumentParser(description="向量库全量重建（嵌入模型更换后使用）")
     parser.add_argument("--only", choices=list(_BUILDERS.keys()),
                         help="只重建指定库（默认全部）")
+    parser.add_argument("--force", action="store_true",
+                        help="忽略 md5 检测强制重建（默认切片库 md5 未变化时跳过）")
     args = parser.parse_args()
 
     targets = [args.only] if args.only else list(_BUILDERS.keys())
@@ -154,7 +187,10 @@ def main():
     results = []
     for name in targets:
         try:
-            results.append(_BUILDERS[name]())
+            if name == "slices":
+                results.append(rebuild_slices(force=args.force))
+            else:
+                results.append(_BUILDERS[name]())
         except Exception as e:
             print(f"❌ {name} 重建失败: {e}")
             logger.error("重建失败: %s", e, exc_info=True)
