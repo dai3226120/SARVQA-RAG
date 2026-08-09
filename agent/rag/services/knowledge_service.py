@@ -12,6 +12,7 @@ from rag.stores.knowledge_store import KnowledgeStore
 from rag.core.config import rag_config
 from model.factory import doubao_seed_20_mini_model
 from utils.prompt_loader import load_rag_prompts
+from utils.logger_handler import logger
 
 
 class KnowledgeRagService(BaseRetriever):
@@ -66,10 +67,8 @@ class KnowledgeRagService(BaseRetriever):
             parts = []
             for idx, doc in enumerate(context_docs, 1):
                 parts.append(f"【参考资料{idx}】:{doc.page_content}")
-            from utils.logger_handler import logger
             logger.info(f"【RAG检索】已完成向量检索，共获取{len(context_docs)}条参考资料")
             return "\n".join(parts)
         except Exception as e:
-            from utils.logger_handler import logger
             logger.error(f"RAG检索过程发生异常，跳过RAG检索: {str(e)}")
             return ""

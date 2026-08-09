@@ -7,6 +7,7 @@ from rag.base.retriever import BaseRetriever
 from rag.stores.slice_store import SliceStore
 from rag.builders.slice_builder import SliceBuilder
 from rag.services.knowledge_service import KnowledgeRagService
+from rag.services.slice_service import retrieve_basic_slices
 from rag.membership.cache_system import SemanticCacheSystem
 from rag.core.config import rag_config
 from rag.core.exact_index import ExactVectorIndex
@@ -193,21 +194,21 @@ class MembershipHybridService(BaseRetriever):
 
         try:
             # ==========================================
-            # 阶段 0: RAG 向量检索（通过 chroma.yml → retrieval.enable_rag_context 控制）
+            # 阶段 0: RAG 向量检索（封装在 _retrieve_rag_context，与 slice_service 实现一致）
             # ==========================================
             t0 = time.time()
-            rag_context = self._knowledge_service.retrieve_context(query) if self._enable_rag_context else ""
+            rag_context = self._retrieve_rag_context(query)
             trace.rag_context = rag_context or None
             trace.stage0_latency = (time.time() - t0) * 1000
 
             # ==========================================
-            # 阶段 1: 隶属度计算（缓存拦截与校验）
+            # 阶段 1: 隶属度计算（封装在 _retrieve_by_membership）
             # 仅嵌入一次 query：命中/未命中两条路复用同一向量，避免全局嵌入锁排队翻倍
             # ==========================================
             MembershipHybridService._total_calls += 1
             MembershipHybridService._bump_session_stats(hit=False)
             t1 = time.time()
-            qe = huggingface_embed_model.embed_query(query)
+            qe = self._embed_query(query)
             result_str, membership_trace = self._retrieve_by_membership(
                 query, fit_threshold, w1, w2, qe=qe
             )
@@ -219,15 +220,13 @@ class MembershipHybridService(BaseRetriever):
                 trace.slices = (membership_trace or {}).get("final_slices", [])
                 trace.total_latency = (time.time() - total_start) * 1000
                 self._last_trace = trace
-                if rag_context:
-                    return f"【RAG检索参考】\n{rag_context}\n\n==============================\n\n{result_str}"
-                return result_str
+                return self._compose_result(rag_context, result_str)
 
             if membership_trace is None:
                 trace.error = "隶属度计算过程异常，已降级到基础检索"
 
             # ==========================================
-            # 阶段 2: 基础切片检索（降级回退，复用阶段1的 query 嵌入）
+            # 阶段 2: 基础切片检索（封装在 _retrieve_by_similarity，降级回退，复用阶段1的 query 嵌入）
             # ==========================================
             t2 = time.time()
             rscsv_result, slices_trace = self._retrieve_by_similarity(query, slice_k, qe=qe)
@@ -235,9 +234,7 @@ class MembershipHybridService(BaseRetriever):
             trace.stage2_latency = (time.time() - t2) * 1000
             trace.total_latency = (time.time() - total_start) * 1000
             self._last_trace = trace
-            if rag_context:
-                return f"【RAG检索参考】\n{rag_context}\n\n==============================\n\n{rscsv_result}"
-            return rscsv_result
+            return self._compose_result(rag_context, rscsv_result)
         except Exception as e:
             logger.error(f"[hybrid_retrieve] 检索过程异常: {e}", exc_info=True)
             trace.error = str(e)
@@ -248,6 +245,24 @@ class MembershipHybridService(BaseRetriever):
     def retrieve(self, query: str) -> str:
         """实现 BaseRetriever 接口（参数经 set_runtime_params 运行时配置）"""
         return self.hybrid_retrieve(query)
+
+    def _retrieve_rag_context(self, query: str) -> str:
+        """
+        阶段 0: RAG 向量检索（与 slice_service._retrieve_rag_context 实现一致）
+        通过 chroma.yml → retrieval.enable_rag_context 控制开关；
+        封装知识库服务的上下文检索（检索 → 格式化为参考资料字符串）
+        """
+        return self._knowledge_service.retrieve_context(query) if self._enable_rag_context else ""
+
+    def _embed_query(self, query: str):
+        """嵌入 query 向量（阶段1/2 共用一次，避免全局嵌入锁排队翻倍）"""
+        return huggingface_embed_model.embed_query(query)
+
+    def _compose_result(self, rag_context: str, body: str) -> str:
+        """拼接最终检索结果字符串：RAG 参考上下文在前，检索主体在后"""
+        if rag_context:
+            return f"【RAG检索参考】\n{rag_context}\n\n==============================\n\n{body}"
+        return body
 
     def _retrieve_by_membership(
         self, query: str, fit_threshold: float,
@@ -317,45 +332,11 @@ class MembershipHybridService(BaseRetriever):
         return None, trace_data
 
     def _retrieve_by_similarity(self, query: str, slice_k: int, qe=None) -> tuple[str, list]:
-        """阶段 2: 基础切片检索（降级回退，全量精确），返回 (结果字符串, 切片trace列表)
+        """阶段 2: 基础切片检索（降级回退，统一内核 retrieve_basic_slices）
 
-        qe: 预嵌入的 query 向量（复用阶段1结果，未传入时才重新嵌入）
+        与 slice_service 阶段 1 共用同一检索实现（后续改造检索算法只改内核一处）；
+        qe: 预嵌入的 query 向量（复用阶段1结果，None 时由内核嵌入）
         检索多少就送多少：slice_k 条候选全部保留
         """
-        if qe is None:
-            qe = huggingface_embed_model.embed_query(query)
-        hits = self._slice_index.search(qe, slice_k)  # [(slice_id, score)] 降序
-        if hits:
-            top_ids = [h[0] for h in hits]
-            got = self._store.get_by_ids(top_ids)  # 按 id 精确取内容
-            documents = got.get("documents") or []
-            metadatas = got.get("metadatas") or []
-
-            slices_trace = [
-                {
-                    "slice_id": (
-                        metadatas[i].get("slice_id", "")
-                        if isinstance(metadatas[i], dict)
-                        else top_ids[i]
-                    ),
-                    "score": float(hits[i][1]),
-                    "score_type": "similarity",
-                    "content": documents[i],
-                }
-                for i in range(len(top_ids))
-                if i < len(documents)
-            ]
-
-            content = "\n---\n".join(
-                [
-                    f"相似度得分: {hits[i][1]:.4f}\n{documents[i]}"
-                    for i in range(len(top_ids))
-                    if i < len(documents)
-                ]
-            )
-            return (
-                f"【匹配基础切片】(全量精确检索{slice_k}条)  \n{content}",
-                slices_trace,
-            )
-
-        return "未检索到相关遥感问答参考资料。", []
+        data = retrieve_basic_slices(self._slice_index, self._store, query, slice_k, qe=qe)
+        return data["result_str"], data["slices_trace"]
