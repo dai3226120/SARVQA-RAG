@@ -25,7 +25,7 @@ internvl_full_endpoint: "http://i-2.gpushare.com:31867/v1/chat/completions"
 internvl_api_key: "vllm-dummy-api-key"
 internvl_temperature: 0.2
 internvl_timeout: 30
-internvl_max_tokens: 8192
+internvl_max_tokens: 20480   # 输出上限，须 ≤ vLLM 服务端 --max-model-len（当前 4096），否则返回 400
 
 # ====================== Qwen3.7-Plus 配置 ======================
 qwen37_plus_model_name: qwen3.7-plus

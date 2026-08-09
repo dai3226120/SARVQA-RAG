@@ -65,8 +65,8 @@ from utils.print_utils import print_separator
 # MODEL_KEY = "agent-text-doubao-seed"
 # MODEL_KEY = "agent-text-doubao-seed_rscsv"
 
-MODEL_KEY = "internVL"
-# MODEL_KEY = "agent-text-internVL"
+# MODEL_KEY = "internVL"
+MODEL_KEY = "agent-text-internVL"
 # MODEL_KEY = "agent-text-internVL_rscsv"
 
 # MODEL_KEY = "qwen37-plus"
@@ -490,9 +490,13 @@ def _print_final_stats(pred_result: dict = None, bench_result: dict = None,
                 if res.get("degenerate"):
                     print(f"       {metric:7} 无需阈值（整体正确率 {baseline:.2%} 已达目标 {conf_percent:.0f}%）")
                 elif res.get("threshold") is not None:
+                    sample_num = res.get('sample', 0)
+                    total_num = stats.get('valid_sample_count', 0)
+                    sample_pct = sample_num / total_num if total_num > 0 else 0.0
                     print(f"       {metric:7} 阈值: {res['threshold']:.6f}"
                           f" | 实际置信度: {res.get('conf', 0):.2%}"
-                          f" | 样本数: {res.get('sample', 0)}")
+                          f" | 样本数: {sample_num}"
+                          f" | 样本占比: {sample_pct:.2%}")
                 else:
                     print(f"       {metric:7} 未找到满足条件的阈值")
 
