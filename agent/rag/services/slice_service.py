@@ -63,6 +63,9 @@ class SliceRetrievalService(BaseRetriever):
         # ==========================================
         rag_context = self._knowledge_service.retrieve_context(query) if self._enable_rag_context else ""
 
+        # ==========================================
+        # 阶段 1: 基础切片检索
+        # ==========================================
         # 全量精确检索（faiss IndexFlatIP，非 HNSW 近似）
         import time as _time
         _t0 = _time.perf_counter()
