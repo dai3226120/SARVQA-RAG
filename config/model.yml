@@ -20,8 +20,8 @@ doubao_seed_thinking_mode: "disabled"
 # ====================== InternVL 配置 ======================
 internvl2-8b_model_name: OpenGVLab/InternVL2-8B
 internvl3-5-8b_model_name: OpenGVLab/InternVL3_5-8B
-internvl_api_endpoint: "http://i-2.gpushare.com:24667/v1"
-internvl_full_endpoint: "http://i-2.gpushare.com:24667/v1/chat/completions"
+internvl_api_endpoint: "http://i-2.gpushare.com:31867/v1"
+internvl_full_endpoint: "http://i-2.gpushare.com:31867/v1/chat/completions"
 internvl_api_key: "vllm-dummy-api-key"
 internvl_temperature: 0.2
 internvl_timeout: 30

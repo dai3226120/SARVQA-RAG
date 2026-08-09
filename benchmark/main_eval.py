@@ -63,9 +63,9 @@ from utils.print_utils import print_separator
 
 # MODEL_KEY = "doubao-seed"
 # MODEL_KEY = "agent-text-doubao-seed"
-MODEL_KEY = "agent-text-doubao-seed_rscsv"
+# MODEL_KEY = "agent-text-doubao-seed_rscsv"
 
-# MODEL_KEY = "internVL"
+MODEL_KEY = "internVL"
 # MODEL_KEY = "agent-text-internVL"
 # MODEL_KEY = "agent-text-internVL_rscsv"
 
