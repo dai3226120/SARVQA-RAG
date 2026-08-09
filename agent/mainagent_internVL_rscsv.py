@@ -19,7 +19,7 @@ from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 # 导入项目内的模块
 from model.factory import chat_model, embed_model, huggingface_embed_model, doubao_seed_20_mini_model, internvl2_8b_model, internvl3_5_8b_model
 from utils.prompt_loader import load_system_prompts
-from tools.agent_tools import rag_summarize,get_weather,get_user_location, get_user_id, rag_rscsv, to_openai_tools, rag_rscsv_rscsv
+from tools.agent_tools import rag_summarize,get_weather,get_user_location, get_user_id, rag_rscsv, to_openai_tools, rag_rscsv_rscsv, rag_rscsv_service_rscsv
 from tools.middleware import monitor_tool,log_before_model,report_prompt_switch
 from utils.logger_handler import logger
 
@@ -127,6 +127,14 @@ class MainAgent:
         except Exception as e:
             logger.error(f"[MainAgent] 视觉模型生成失败: {e}", exc_info=True)
             yield f"视觉模型出错：{str(e)}"
+
+    def get_last_trace(self):
+        """获取最后一次 RAG 检索的过程记录（含耗时拆分，供 benchmark 检索耗时统计）"""
+        return rag_rscsv_service_rscsv.get_last_trace()
+
+    def get_tool_hit_stats(self):
+        """获取工具调用命中率统计（切片检索无隶属度命中概念，返回空）"""
+        return {}
 
     def get_rag_output(self) -> str:
         """获取最后一次 RAG 工具调用的累积输出文本"""

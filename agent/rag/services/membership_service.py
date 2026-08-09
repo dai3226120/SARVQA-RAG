@@ -263,7 +263,7 @@ class MembershipHybridService(BaseRetriever):
 
     def set_runtime_params(self, **kwargs):
         """设置运行时参数覆盖（UI 在提问前调用；工具签名不变，参数经此透传）"""
-        valid = {"w1", "w2", "fit_threshold", "slice_k"}
+        valid = {"fit_threshold", "slice_k"}
         self._runtime_params = {k: v for k, v in kwargs.items() if k in valid and v is not None}
 
     def clear_runtime_params(self):
@@ -341,15 +341,13 @@ class MembershipHybridService(BaseRetriever):
         query: str,
         slice_k: int = None,
         fit_threshold: float = None,
-        w1: float = None,
-        w2: float = None,
     ) -> str:
         """
         执行三阶段混合检索（含过程记录）
 
         Args:
             query: 查询文本
-            slice_k / fit_threshold / w1 / w2:
+            slice_k / fit_threshold:
                 检索参数，显式传入 > 运行时覆盖(set_runtime_params) > 配置默认
             （membership_k 已弃用：隶属度检索固定取全量库 top-1；
               top_p 已弃用：检索多少就送多少，切片检索固定保留全部 slice_k 条）
@@ -360,15 +358,13 @@ class MembershipHybridService(BaseRetriever):
         # 参数解析：显式传入 > 运行时覆盖 > 配置默认
         slice_k = slice_k or self._resolve("slice_k", self._slice_k)
         fit_threshold = fit_threshold if fit_threshold is not None else self._resolve("fit_threshold", self._fit_threshold)
-        w1 = w1 if w1 is not None else self._resolve("w1", rag_config.w1)
-        w2 = w2 if w2 is not None else self._resolve("w2", rag_config.w2)
 
         total_start = time.time()
         trace = RetrievalTrace(
             query=query,
             decision="slice_fallback",
             params_used={
-                "w1": w1, "w2": w2, "fit_threshold": fit_threshold,
+                "fit_threshold": fit_threshold,
                 "slice_k": slice_k,
             },
         )
@@ -391,7 +387,7 @@ class MembershipHybridService(BaseRetriever):
             t1 = time.time()
             qe = self._embed_query(query)
             result_str, membership_trace = self._retrieve_by_membership(
-                query, fit_threshold, w1, w2, slice_k, qe=qe
+                query, fit_threshold, slice_k, qe=qe
             )
             trace.membership = membership_trace
             trace.stage1_latency = (time.time() - t1) * 1000
@@ -447,14 +443,13 @@ class MembershipHybridService(BaseRetriever):
 
     def _retrieve_by_membership(
         self, query: str, fit_threshold: float,
-        w1: float, w2: float, slice_k: int, qe=None, temperature=None,
+        slice_k: int, qe=None, temperature=None,
     ) -> tuple[str | None, dict | None]:
         """
         阶段 1: 隶属度检索（类别中心平均 + Softmax 映射，统一内核 retrieve_membership_slices）
         命中：μ_max ≥ fit_threshold（归属类非空）→ 返回归属类内 top slice_k 切片内容
         未命中/异常：返回 (None, trace_data)，由编排层降级到阶段 2 全量切片检索
 
-        w1/w2: 已不参与隶属度计算（保留参数以兼容调用方接口与 trace 记录）
         qe: 预嵌入的 query 向量（复用，避免全局嵌入锁排队）
         Returns: (检索结果字符串或 None, 过程记录 dict 或 None)
         """

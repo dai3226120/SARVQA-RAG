@@ -26,6 +26,7 @@ for _p in (_project_root, _agent_dir):
 from agent_registry import MODEL_REGISTRY, DEFAULT_MODEL_KEY, build_agent
 from tools.agent_tools import rag_rscsv_service
 from rag.services.membership_service import MembershipHybridService
+from rag.core.config import rag_config
 from tools.middleware import ToolLatencyTracker
 
 st.set_page_config(page_title="SAR遥感问答系统", layout="wide")
@@ -80,9 +81,10 @@ def init_state():
     if "staged_image" not in st.session_state:
         st.session_state["staged_image"] = None  # {"bytes","type","name"} | None
     if "params" not in st.session_state:
+        # 默认值与 config/chroma.yml 保持一致（fit_threshold / slice_k）
         st.session_state["params"] = {
-            "w1": 0.9, "w2": 0.1, "fit_threshold": 0.65,
-            "slice_k": 50,
+            "fit_threshold": rag_config.fit_threshold,
+            "slice_k": rag_config.slice_k,
         }
 
 
@@ -153,13 +155,11 @@ def render_sidebar():
         st.divider()
         st.header("⚙️ 检索参数")
         p = st.session_state["params"]
-        w1 = st.slider("w1 相似度权重", 0.0, 1.0, p["w1"], 0.05)
-        st.caption(f"w2 正确率权重 = {1 - w1:.2f}（自动联动，和为 1）")
         fit_threshold = st.slider("fit_threshold 命中阈值", 0.0, 1.0, p["fit_threshold"], 0.05)
         # membership_k / top_p 已弃用（隶属度固定 top-1；检索多少就送多少），不再提供滑杆
         slice_k = st.number_input("slice_k 切片检索数", 1, 200, p["slice_k"])
         st.session_state["params"] = {
-            "w1": w1, "w2": round(1 - w1, 2), "fit_threshold": fit_threshold,
+            "fit_threshold": fit_threshold,
             "slice_k": int(slice_k),
         }
 
@@ -211,8 +211,7 @@ def render_trace(trace: dict):
     elif decision == "slice_fallback":
         st.warning(f"🔄 未命中 → 降级切片检索  μ_max={max_mu:.4f} < {threshold}")
     st.caption(
-        f"参数: w1={p.get('w1')} w2={p.get('w2')} 阈值={threshold} "
-        f"slice_k={p.get('slice_k')}"
+        f"参数: 阈值={threshold} slice_k={p.get('slice_k')}"
     )
     if trace.get("error"):
         st.error(f"检索异常: {trace['error']}")
