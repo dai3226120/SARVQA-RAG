@@ -4,11 +4,13 @@
 """
 
 import os
+import sys
 import time
 import datetime
 import concurrent.futures
 
 import pandas as pd
+from tqdm import tqdm
 
 from config import data_config, path_config, prompt_config
 from utils.print_utils import safe_print, format_elapsed_time
@@ -30,6 +32,7 @@ def process_vqa_data(
     required_columns=None,
     use_timestamp=True,
     batch_save_threshold=None,
+    progress_interval=None,
 ):
     """
     通用的 SAR-VQA 数据并行处理函数
@@ -44,6 +47,7 @@ def process_vqa_data(
         max_workers: 最大并发数
         start_row: 起始行
         required_columns: 必需列名列表
+        progress_interval: 非终端（重定向日志）时的进度打印间隔（条）
     """
     safe_print("=" * 80)
     safe_print("[START] 开始处理 SAR-VQA 数据")
@@ -59,6 +63,8 @@ def process_vqa_data(
         required_columns = data_config.REQUIRED_COLUMNS
     if batch_save_threshold is None:
         batch_save_threshold = data_config.BATCH_SAVE_THRESHOLD
+    if progress_interval is None:
+        progress_interval = batch_save_threshold or 100
 
     safe_print("[CONFIG] 处理配置:")
     safe_print(f"  - 输入文件: {csv_input_path}")
@@ -115,8 +121,14 @@ def process_vqa_data(
     start_time = time.time()
     failed_count = 0
 
+    # 终端直接运行时用 tqdm 固定进度条（日志自动保护重绘，进度不被刷掉）；
+    # 重定向到日志文件时按 progress_interval 逐行打印
+    _is_tty = sys.stdout.isatty()
+
     safe_print(f"\n[PROCESS] 开始并行处理 ({total_tasks} 条任务)")
     safe_print(f"   线程数: {max_workers}")
+    if not _is_tty:
+        safe_print(f"   进度打印间隔: 每 {progress_interval} 条")
     safe_print("-" * 80)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -125,6 +137,18 @@ def process_vqa_data(
             for idx, row in df.iterrows()
         }
 
+        # tqdm 进度条（stderr 渲染，自带日志保护重绘；非终端时禁用）
+        pbar = tqdm(
+            total=total_tasks,
+            desc="调用进度",
+            unit="条",
+            disable=not _is_tty,
+            bar_format=(
+                "{l_bar}{bar}| {n_fmt}/{total_fmt} ({percentage:.0f}%) | "
+                "{rate_fmt} | {elapsed} 剩余 {remaining}"
+            ),
+        )
+
         for completed_count, future in enumerate(concurrent.futures.as_completed(future_to_row), start=1):
             idx, row = future_to_row[future]
             try:
@@ -132,6 +156,23 @@ def process_vqa_data(
                 result_item = future.result(timeout=300)
                 if result_item is not None:
                     results.append(result_item)
+
+                if _is_tty:
+                    # tqdm 进度条：每完成一条刷新（成功/失败实时）
+                    pbar.set_description(f"调用进度 · 成功 {len(results)} 失败 {failed_count}", refresh=False)
+                    pbar.update(1)
+                elif completed_count % progress_interval == 0 and completed_count != total_tasks:
+                    # 非终端：按间隔逐行打印进度
+                    elapsed = time.time() - start_time
+                    speed = completed_count / elapsed if elapsed > 0 else 0.0
+                    progress = completed_count / total_tasks * 100 if total_tasks else 100.0
+                    remaining = (total_tasks - completed_count) / speed if speed > 0 else 0
+                    safe_print(
+                        f"[进度] {completed_count}/{total_tasks} ({progress:.1f}%) | "
+                        f"成功 {len(results)} | 失败 {failed_count} | "
+                        f"{speed:.2f}条/s | 已用 {format_elapsed_time(elapsed)} | "
+                        f"剩余 {format_elapsed_time(remaining)}"
+                    )
 
                 if len(results) % batch_save_threshold == 0 or completed_count == total_tasks:
                     elapsed = time.time() - start_time
@@ -155,6 +196,8 @@ def process_vqa_data(
             except Exception as e:
                 failed_count += 1
                 safe_print(f"[ERROR] 第{idx + 1}行出错: {str(e)}")
+
+        pbar.close()
 
     try:
         result_df = save_results_to_csv(results, output_csv_path, latest_csv_path)

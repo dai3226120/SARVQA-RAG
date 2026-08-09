@@ -62,8 +62,8 @@ from utils.print_utils import print_separator
 #     - agent-text-internVL_rscsv: 文本InternVL模型（RSCSV）
 
 # MODEL_KEY = "doubao-seed"
-MODEL_KEY = "agent-text-doubao-seed"
-# MODEL_KEY = "agent-text-doubao-seed_rscsv"
+# MODEL_KEY = "agent-text-doubao-seed"
+MODEL_KEY = "agent-text-doubao-seed_rscsv"
 
 # MODEL_KEY = "internVL"
 # MODEL_KEY = "agent-text-internVL"
@@ -143,8 +143,9 @@ IMAGE_BASE_PATH = cfg.path_config.IMAGE_BASE_PATH
 # ====================== 数据处理参数（可在此处直接修改）======================
 MAX_PROCESS_ROWS = 20000
 START_ROW = 0
-MAX_WORKERS = 10  # 降并发规避 API 限流重试（实测 50 并发触发限流，37s/次 → 10 并发 10s/次）
+MAX_WORKERS = 10  # 限流边界实测：10 无重试 / 15 起重试（并发型限流，sleep 无效）  # 降并发规避 API 限流重试（实测 50 并发触发限流，37s/次 → 10 并发 10s/次）
 BATCH_SAVE_THRESHOLD = 100
+PROGRESS_INTERVAL = MAX_WORKERS  # 调用进度打印间隔（条）：每完成 N 条打印一行进度
 
 # ====================== 分析参数 ======================
 CONFIDENCE_THRESHOLD = cfg.analysis_config.CONFIDENCE_THRESHOLD
@@ -266,6 +267,7 @@ def run_prediction(model_key: str, output_dir: str) -> dict:
             max_workers=MAX_WORKERS,
             start_row=START_ROW,
             batch_save_threshold=BATCH_SAVE_THRESHOLD,
+            progress_interval=PROGRESS_INTERVAL,
         )
 
         if result_df is not None:
