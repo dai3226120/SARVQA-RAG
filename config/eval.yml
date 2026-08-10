@@ -36,6 +36,11 @@ model_types:
   agent_doubao: "agent-doubao"
   agent_internvl: "agent-internvl"
   qwen37_plus: "qwen37-plus"
+  # vLLM 部署模型；tinygptv 已正式发布（公网端点同 InternVL），model-2/3 为占位（发布时改名为正式模型名）
+  tinygptv: "tinygptv"
+  agent_tinygptv: "agent-tinygptv"
+  model_2: "model-2"
+  model_3: "model-3"
 
 # ---- 模型标签映射 ----
 file_tags:
@@ -44,3 +49,8 @@ file_tags:
   agent-doubao: "agent-text-doubao-seed-2-0-mini"
   agent-internvl: "agent-text-internVL3_5-8b"
   qwen37-plus: "qwen37-plus"
+  # vLLM 模型文件标签（决定结果文件名与目录名）；占位模型发布时改名为正式模型名
+  "tinygptv": "tinygptv"
+  "agent-tinygptv": "agent-text-tinygptv"
+  "model-2": "model-2"
+  "model-3": "model-3"

@@ -25,6 +25,8 @@ class MainAgentClient:
         "mainagent_internVL": "agent.mainagent_internVL",
         "mainagent_rscsv": "agent.mainagent_rscsv",
         "mainagent_internVL_rscsv": "agent.mainagent_internVL_rscsv",
+        "mainagent_tinygptv": "agent.mainagent_tinygptv",            # TinyGPT-V 变体
+        "mainagent_tinygptv_rscsv": "agent.mainagent_tinygptv_rscsv",  # TinyGPT-V RSCSV 变体
     }
 
     def __init__(self, agent_module_name="mainagent"):

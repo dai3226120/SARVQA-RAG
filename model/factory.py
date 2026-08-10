@@ -164,6 +164,27 @@ class InternVL35ModelFactory(BaseModelFactory):
             max_tokens=model_conf['internvl_max_tokens'],
         )
 
+# vLLM 部署模型工厂（tinygptv / model-2/3）：
+# 字段未单独配置时自动沿用 InternVL 的部署参数（端点/API Key/温度/输出上限），
+# 单独配置的字段优先（如 tinygptv 的输出上限）。
+# ⚠️ 改名：发布正式模型时把 tinygptv / model-2/3 替换为正式模型名（实例名 + 下方配置前缀）
+class VLLMChatModelFactory(BaseModelFactory):
+    """vLLM 部署模型工厂，按配置前缀读取 model.yml 中的模型参数"""
+
+    def __init__(self, prefix: str):
+        self._prefix = prefix
+
+    def generate(self) -> Optional[Embeddings | BaseChatModel]:
+        return ChatOpenAI(
+            model_name=model_conf[f'{self._prefix}_model_name'],
+            api_key=model_conf.get(f'{self._prefix}_api_key', model_conf['internvl_api_key']),
+            base_url=model_conf.get(f'{self._prefix}_api_endpoint', model_conf['internvl_api_endpoint']),
+            temperature=float(model_conf.get(f'{self._prefix}_temperature', model_conf['internvl_temperature'])),
+            streaming=True,
+            max_tokens=model_conf.get(f'{self._prefix}_max_tokens', model_conf['internvl_max_tokens']),
+        )
+
+
 # 在模块加载时创建模型实例，供其他模块使用
 chat_model = ChatModelFactory().generate()        # 通义千问聊天模型
 embed_model = EmbeddingsFactory().generate()      # DashScope 嵌入模型
@@ -173,5 +194,8 @@ huggingface_embed_model = _ThreadSafeEmbeddings(  # 线程安全包装：消除 
 doubao_seed_20_mini_model = DoubaoSeed20MiniModelFactory().generate()  # 多模态模型
 internvl2_8b_model = InternVL2ModelFactory().generate()  # 图像识别模型
 internvl3_5_8b_model = InternVL35ModelFactory().generate()  # 图像识别模型
+tinygptv_model = VLLMChatModelFactory("tinygptv").generate()  # TinyGPT-V（vLLM，8080 端口）
+model_2_model = VLLMChatModelFactory("model-2").generate()     # 占位新模型2（vLLM）
+model_3_model = VLLMChatModelFactory("model-3").generate()     # 占位新模型3（vLLM）
 doubao_1_5_lite_model = DoubaoLiteModelFactory().generate()  # LLM 语义判断模型
 qwen37_plus_model = Qwen37PlusModelFactory().generate()  # Qwen3.7 Plus 文本模型

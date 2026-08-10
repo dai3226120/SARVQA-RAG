@@ -9,6 +9,7 @@ from model.factory import (
     internvl3_5_8b_model,
     doubao_1_5_lite_model,
     qwen37_plus_model,
+    tinygptv_model,
 )
 from mainagent import MainAgent
 from mainagent_internVL import MainAgent as MainAgentInternVL
@@ -26,6 +27,10 @@ MODEL_REGISTRY = {
     "internvl2-8b": {
         "class": MainAgentInternVL, "model": internvl2_8b_model,
         "supports_image": True, "group": "多模态", "label": "InternVL2-8B",
+    },
+    "tinygptv": {
+        "class": MainAgentInternVL, "model": tinygptv_model,
+        "supports_image": True, "group": "多模态", "label": "TinyGPT-V",
     },
     # ── 文本 LLM ──
     "doubao-1.5-lite": {

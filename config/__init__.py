@@ -77,6 +77,11 @@ class ModelType:
     AGENT_DOUBAO = eval_conf['model_types']['agent_doubao']
     AGENT_INTERNVL = eval_conf['model_types']['agent_internvl']
     QWEN37_PLUS = eval_conf['model_types']['qwen37_plus']
+    # vLLM 部署模型；tinygptv 已正式发布（公网端点同 InternVL），MODEL_2/3 为占位（发布时改名为正式模型名）
+    TINYGPTV = eval_conf['model_types']['tinygptv']
+    AGENT_TINYGPTV = eval_conf['model_types']['agent_tinygptv']
+    MODEL_2 = eval_conf['model_types']['model_2']
+    MODEL_3 = eval_conf['model_types']['model_3']
 
 
 def get_file_tag(model_type: str) -> str:

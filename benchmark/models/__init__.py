@@ -7,6 +7,7 @@ from .doubao_seed import DoubaoAPIClient
 from .internvl import InternVLAPIClient
 from .main_agent import MainAgentClient
 from .qwen37_plus import Qwen37PlusAPIClient
+from .vllm_models import tinygptv_client, model_2_client, model_3_client  # vLLM 部署模型（tinygptv / 占位）
 
 # 非 Agent 全局实例
 doubao_client = DoubaoAPIClient()
@@ -18,6 +19,8 @@ doubao_agent_client = MainAgentClient("mainagent")
 internvl_agent_client = MainAgentClient("mainagent_internVL")
 doubao_agent_rscsv_client = MainAgentClient("mainagent_rscsv")
 internvl_agent_rscsv_client = MainAgentClient("mainagent_internVL_rscsv")
+tinygptv_agent_client = MainAgentClient("mainagent_tinygptv")          # TinyGPT-V Agent
+tinygptv_agent_rscsv_client = MainAgentClient("mainagent_tinygptv_rscsv")  # TinyGPT-V RSCSV Agent
 
 
 # ==================== 便捷函数 ====================
