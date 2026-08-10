@@ -26,6 +26,12 @@ def rag_summarize(query: str) -> str:
     """遥感通用知识相关检索工具"""
     return rag.rag_summarize(query)
 
+@tool(description="从知识库中检索遥感通用知识参考上下文（仅阶段0检索，不做LLM总结）。注意：请务必直接透传用户的原始输入，不要做任何总结或改写。")
+def rag_knowledge_context(query: str) -> str:
+    """遥感知识库上下文检索工具（阶段0，仅检索不总结）"""
+    print(f"[rag_knowledge_context tool] Received query: {query}")
+    return rag.retrieve_context(query)
+
 # @tool(description="从向量存储中检索遥感问答相关参考资料")
 @tool(description="从向量存储中检索遥感问答相关参考资料。注意：请务必直接透传用户的原始输入，不要做任何总结或改写。")
 def rag_rscsv(query: str) -> str:

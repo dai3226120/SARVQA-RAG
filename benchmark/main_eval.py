@@ -43,11 +43,13 @@ from models import (
     doubao_client,
     internvl_client,
     doubao_agent_client,
+    doubao_agent_knowledge_client,
     internvl_agent_client,
     doubao_agent_rscsv_client,
     internvl_agent_rscsv_client,
     qwen37_plus_client,
     tinygptv_client,
+    tinygptv_stage4_client,
     tinygptv_agent_client,
     tinygptv_agent_rscsv_client,
     model_2_client,
@@ -65,14 +67,16 @@ from utils.print_utils import print_separator
 #     - agent-text-doubao-seed_rscsv: 文本Doubao模型（RSCSV）
 #     - agent-text-internVL: 文本InternVL模型
 #     - agent-text-internVL_rscsv: 文本InternVL模型（RSCSV）
-#     - tinygptv: TinyGPT-V（vLLM 部署，公网端点与 InternVL 相同）
+#     - tinygptv: TinyGPT-V/SAR-GPT（vLLM 部署，公网端点与 InternVL 相同）
+#     - tinygptv-stage4: 官方 Stage4（[INST] 模板，与 tinygptv 同服务端，模型在服务端手动切换）
 #     - agent-text-tinygptv: TinyGPT-V Agent（doubao 收集 RAG → tinygptv 视觉回答）
 #     - agent-text-tinygptv_rscsv: TinyGPT-V Agent（RSCSV 切片检索）
 #     - model-2/3: 占位新模型（vLLM 部署，与 InternVL 同服务器同端口，模型在服务端手动切换）
 
 # MODEL_KEY = "doubao-seed"
-# MODEL_KEY = "agent-text-doubao-seed"
+MODEL_KEY = "agent-text-doubao-seed"
 # MODEL_KEY = "agent-text-doubao-seed_rscsv"
+# MODEL_KEY = "agent-text-doubao-seed_knowledge"
 
 # MODEL_KEY = "internVL"
 # MODEL_KEY = "agent-text-internVL"
@@ -80,9 +84,9 @@ from utils.print_utils import print_separator
 
 # MODEL_KEY = "qwen37-plus"
 
-MODEL_KEY = "tinygptv"
-# MODEL_KEY = "agent-text-tinygptv"
-# MODEL_KEY = "agent-text-tinygptv_rscsv"
+# MODEL_KEY = "tinygptv"        # SAR-GPT（Instruct 模板）
+# MODEL_KEY = "tinygptv-stage4"  # 官方 Stage4（[INST] 模板；服务端切换模型后选用）
+
 # MODEL_KEY = "model-2"
 # MODEL_KEY = "model-3"
 
@@ -126,6 +130,14 @@ _MODEL_REGISTRY = {
         "api_call": tinygptv_client.call,
         "is_agent": False,
     },
+    # ---- 官方 Stage4（与 tinygptv 同服务端，模型在服务端手动切换；结果目录独立）----
+    "tinygptv-stage4": {
+        "model_type": cfg.ModelType.TINYGPTV_STAGE4,
+        "file_tag": cfg.get_file_tag(cfg.ModelType.TINYGPTV_STAGE4),
+        "client": tinygptv_stage4_client,
+        "api_call": tinygptv_stage4_client.call,
+        "is_agent": False,
+    },
     # ---- TinyGPT-V Agent 变体（与 internVL 的 agent 模式同构；不改 InternVL 任何配置）----
     "agent-text-tinygptv": {
         "model_type": cfg.ModelType.AGENT_TINYGPTV,
@@ -160,6 +172,13 @@ _MODEL_REGISTRY = {
         "file_tag": cfg.get_file_tag(cfg.ModelType.AGENT_DOUBAO),
         "client": doubao_agent_client,
         "api_call": doubao_agent_client.call,
+        "is_agent": True,
+    },
+    "agent-text-doubao-seed_knowledge": {
+        "model_type": cfg.ModelType.AGENT_DOUBAO,
+        "file_tag": "agent-text-doubao-seed-2-0-mini_knowledge",
+        "client": doubao_agent_knowledge_client,
+        "api_call": doubao_agent_knowledge_client.call,
         "is_agent": True,
     },
     "agent-text-doubao-seed_rscsv": {
@@ -198,7 +217,7 @@ DATASET_TAG = "val"
 IMAGE_BASE_PATH = cfg.path_config.IMAGE_BASE_PATH
 
 # ====================== 数据处理参数（可在此处直接修改）======================
-MAX_PROCESS_ROWS = 20
+MAX_PROCESS_ROWS = 20000
 START_ROW = 0
 MAX_WORKERS = 10  # 限流边界实测：10 无重试 / 15 起重试（并发型限流，sleep 无效）  # 降并发规避 API 限流重试（实测 50 并发触发限流，37s/次 → 10 并发 10s/次）
 BATCH_SAVE_THRESHOLD = 100

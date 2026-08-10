@@ -22,6 +22,7 @@ class MainAgentClient:
     # 支持的 Agent 模块映射
     AGENT_MODULES = {
         "mainagent": "agent.mainagent",
+        "mainagent_knowledge": "agent.mainagent_knowledge",
         "mainagent_internVL": "agent.mainagent_internVL",
         "mainagent_rscsv": "agent.mainagent_rscsv",
         "mainagent_internVL_rscsv": "agent.mainagent_internVL_rscsv",

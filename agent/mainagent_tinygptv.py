@@ -1,10 +1,12 @@
 """TinyGPT-V Agent 变体（对应 benchmark MODEL_KEY = "agent-text-tinygptv"）
 
 复用 InternVL Agent 的完整流程（doubao 收集 RAG → 视觉模型多模态最终回答），
-仅两处不同：
+与 InternVL 变体的差异：
 1. 最终视觉模型替换为 tinygptv_model
-2. RAG 上下文按字数截断 —— tinygptv 服务端 max_model_len=2048（实测 2048 上下文，
-   RAG 上下文 + 系统提示 + 图片会吃掉绝大部分窗口，不截断则视觉请求必 400）
+2. 视觉轮不使用 SystemMessage —— tinygptv 服务端 chat template（Instruct 模板）
+   没有 system 分支，system 消息会被丢弃；因此 RAG 上下文与格式要求
+   全部放进 user 消息文本（渲染为 Instruct: {q}\n[RAG]\nOutput: ），确保送达
+3. user 文本按字数截断（服务端 max_model_len=2048，超限必 400）
 
 改名：发布正式模型时把 tinygptv 替换为正式模型名（类名/文件名/vision_model 引用）。
 """
@@ -19,17 +21,36 @@ for p in (current_dir, root_dir):
         sys.path.insert(0, str(p))
 
 import base64
+import re
 
-from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage, AIMessage
+from langchain_core.messages import HumanMessage, ToolMessage
 from model.factory import tinygptv_model
-from utils.prompt_loader import load_system_prompts
 from utils.logger_handler import logger
 from mainagent_internVL import MainAgent as _InternVLMainAgent
 
-# tinygptv 服务端 max_model_len=2048：实测中文系统提示词(~1881字符)≈1450 tokens，
-# 加上图片/问题后几乎占满窗口。系统提示词+RAG 上下文合计截断到 1200 字符
-#（中文约 1.4 字符/token → ≈850 tokens），给输出和图片留出空间
-MAX_SYSTEM_TEXT_CHARS = 1200
+# tinygptv 服务端 max_model_len=2048，输出上限 256 → 输入可用约 1792 tokens；
+# user 文本（问题+RAG+格式要求）截断到 3500 字符（英文约 4 字符/token → ≈875 tokens），
+# 加上图片 34 + 模板 ~12 + 问题 ~20 后仍有余量
+MAX_USER_TEXT_CHARS = 3500
+
+# SAR-GPT 对 Instruct 块内 Q/A 切片对数量敏感（实测：6 个正常，≥10 个触发空输出，
+# 模型只生成 '\n' 或空串）。视觉轮只保留前 MAX_QA_PAIRS 个 Q/A 对，其余切片丢弃。
+MAX_QA_PAIRS = 5
+
+
+def _limit_rag_qa(rag: str, max_pairs: int = MAX_QA_PAIRS) -> str:
+    """按 Q/A 对数量截断 RAG：'Q: ' 开头的片段视为一个切片对，最多保留前 max_pairs 个；
+    非 Q/A 片段（参考资料、隶属度说明等）全部保留"""
+    parts = re.split(r"(?=Q: )", rag)
+    qa_seen = 0
+    kept = []
+    for part in parts:
+        if part.startswith("Q: "):
+            if qa_seen >= max_pairs:
+                continue
+            qa_seen += 1
+        kept.append(part)
+    return "".join(kept)
 
 
 class MainAgent(_InternVLMainAgent):
@@ -43,24 +64,7 @@ class MainAgent(_InternVLMainAgent):
         )
 
     def execute_stream(self, query: str, image_file=None, history=None):
-        """同基类流程，唯一差异：RAG 上下文截断（服务端 2048 上下文限制）"""
-        # 准备最终视觉模型要用的多模态内容（包含图片）
-        multi_modal_content = [{"type": "text", "text": query}]
-        if image_file is not None:
-            try:
-                if hasattr(image_file, "seek"):
-                    image_file.seek(0)
-                image_bytes = image_file.read()
-                image_type = getattr(image_file, "type", "image/jpeg") or "image/jpeg"
-                base64_image = base64.b64encode(image_bytes).decode("utf-8")
-                multi_modal_content.append(
-                    {"type": "image_url", "image_url": {"url": f"data:{image_type};base64,{base64_image}"}}
-                )
-            except Exception as e:
-                logger.error(f"[MainAgent] 读取图像数据失败: {e}", exc_info=True)
-                yield "无法读取上传图像，请重试。"
-                return
-
+        """同基类流程，唯一差异：RAG 上下文并入 user 文本 + 截断（服务端 2048 上下文限制）"""
         # ----- 第一步：用 doubao agent 收集 RAG 信息（仅文本） -----
         try:
             agent_input = {"messages": self._build_agent_messages(query, history)}
@@ -82,23 +86,41 @@ class MainAgent(_InternVLMainAgent):
                     rag_parts.append(str(content))
         rag_context = "\n\n".join(rag_parts)
 
+        # tinygptv 特有：限制 Q/A 切片对数量（≥10 个触发模型空输出）
+        rag_context = _limit_rag_qa(rag_context)
+
         # 保存到实例属性供 get_rag_output() 使用
         self._last_rag_context = rag_context
 
         # ----- 第二步：用 tinygptv 多模态模型生成最终答案 -----
-        system_text = load_system_prompts()
+        # tinygptv 服务端模板无 system 分支（system 消息被丢弃），
+        # RAG 上下文 + 格式要求全部并入 user 文本，确保送达模型
+        user_text = query
         if rag_context:
-            system_text += f"\n\n以下是检索到的相关背景信息：\n{rag_context}"
+            user_text += f"\n\n以下是检索到的相关背景信息：\n{rag_context}"
+        # 先截断（问题+RAG），再追加格式要求，保证格式指令不被截掉
+        if len(user_text) > MAX_USER_TEXT_CHARS:
+            user_text = user_text[:MAX_USER_TEXT_CHARS]
+        user_text += "\n\n最终答案用一句话英文说明，不超过150字，不要使用例如或括号。"
 
-        # ---- tinygptv 特有：系统提示+RAG 合计截断（服务端上下文 2048，输入超限必 400）----
-        if len(system_text) > MAX_SYSTEM_TEXT_CHARS:
-            system_text = system_text[:MAX_SYSTEM_TEXT_CHARS]
-
-        # 追加最终答案的格式要求（放在截断之后，保证格式指令完整）
-        system_text += "\n\n最终答案用一句话英文说明，不超过150字，不要使用例如或括号。"
+        # 准备最终视觉模型要用的多模态内容（包含图片）
+        multi_modal_content = [{"type": "text", "text": user_text}]
+        if image_file is not None:
+            try:
+                if hasattr(image_file, "seek"):
+                    image_file.seek(0)
+                image_bytes = image_file.read()
+                image_type = getattr(image_file, "type", "image/jpeg") or "image/jpeg"
+                base64_image = base64.b64encode(image_bytes).decode("utf-8")
+                multi_modal_content.append(
+                    {"type": "image_url", "image_url": {"url": f"data:{image_type};base64,{base64_image}"}}
+                )
+            except Exception as e:
+                logger.error(f"[MainAgent] 读取图像数据失败: {e}", exc_info=True)
+                yield "无法读取上传图像，请重试。"
+                return
 
         vision_messages = [
-            SystemMessage(content=system_text),
             HumanMessage(content=multi_modal_content)
         ]
 

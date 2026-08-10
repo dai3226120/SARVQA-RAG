@@ -14,7 +14,7 @@ vLLM 部署模型客户端（tinygptv / model-2 / model-3）
        - benchmark/models/__init__.py 导出
        - benchmark/main_eval.py       _MODEL_REGISTRY 条目与 MODEL_KEY 注释
 """
-from model.factory import tinygptv_model, model_2_model, model_3_model
+from model.factory import tinygptv_model, tinygptv_stage4_model, model_2_model, model_3_model
 from .base_model import BaseAPIClient
 
 
@@ -38,5 +38,8 @@ class TinyGPTVAPIClient(VLLMAPIClient):
 
 
 tinygptv_client = TinyGPTVAPIClient(tinygptv_model, model_label="tinygptv")
+# Stage4（官方检查点，[INST] 模板）：与 tinygptv 同服务端，模型在服务端手动切换；
+# 普通模式同样发裸问题（服务端模板负责 [INST] 包装），仅结果目录/文件标签区分
+tinygptv_stage4_client = TinyGPTVAPIClient(tinygptv_stage4_model, model_label="tinygptv-stage4")
 model_2_client = VLLMAPIClient(model_2_model, model_label="model-2")
 model_3_client = VLLMAPIClient(model_3_model, model_label="model-3")

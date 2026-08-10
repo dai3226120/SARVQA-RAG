@@ -38,6 +38,7 @@ model_types:
   qwen37_plus: "qwen37-plus"
   # vLLM 部署模型；tinygptv 已正式发布（公网端点同 InternVL），model-2/3 为占位（发布时改名为正式模型名）
   tinygptv: "tinygptv"
+  tinygptv_stage4: "tinygptv-stage4"   # 官方 Stage4（[INST] 模板，与 tinygptv 同服务端）
   agent_tinygptv: "agent-tinygptv"
   model_2: "model-2"
   model_3: "model-3"
@@ -51,6 +52,7 @@ file_tags:
   qwen37-plus: "qwen37-plus"
   # vLLM 模型文件标签（决定结果文件名与目录名）；占位模型发布时改名为正式模型名
   "tinygptv": "tinygptv"
+  "tinygptv-stage4": "tinygptv-stage4"
   "agent-tinygptv": "agent-text-tinygptv"
   "model-2": "model-2"
   "model-3": "model-3"

@@ -36,11 +36,27 @@ internvl_max_tokens: 20480   # 输出上限，须 ≤ vLLM 服务端 --max-model
 #    config/eval.yml、config/__init__.py、model/factory.py、benchmark/models/vllm_models.py、
 #    benchmark/models/__init__.py、benchmark/main_eval.py
 
-# ---- tinygptv（TinyGPT-V，vLLM 部署；服务端内部 localhost:8080，
+# ---- tinygptv（TinyGPT-V / SAR-GPT，vLLM 部署；服务端内部 localhost:8080，
 #     公网统一映射为 i-2.gpushare.com:31867，与 InternVL 同一对外端点）----
 tinygptv_model_name: "tinygptv"
 tinygptv_api_endpoint: "http://i-2.gpushare.com:31867/v1"
 tinygptv_max_tokens: 256    # 输出上限，须与输入合计 ≤ 服务端 max_model_len=2048（实测：2048/512 均 400，Agent 模式 RAG 上下文输入 ~1500 tokens，仅能剩 ~500 给输出）；VQA 答案较短，256 足够
+tinygptv_stop: ["###"]      # 生成停止符（TinyGPT-V demo.py 用 stop=["###"]，防止模型续写下一轮模板）
+# ---- 采样参数（服务端退化 bug 已修复（见部署指南 §7），输出已正常）----
+tinygptv_temperature: 0.2           # 实测 0.6 偶发空输出（首 token 撞停止符），0.2 贪心化最稳定（0/5 空输出）；
+# tinygptv_top_p: 0.9               # 如需调采样在下方取消注释（未配置则不传）
+# tinygptv_repetition_penalty: 1.1  # vLLM 专有参数（经 extra_body 透传）
+
+# ---- tinygptv-stage4（官方 Stage4 检查点，MiniGPT-v2 架构/[INST] 模板，448 图）----
+# 与 tinygptv 同一服务端（模型在服务端手动切换），按 MODEL_KEY = "tinygptv-stage4" 区分。
+# ⚠️ Stage4 与 SAR-GPT 的客户端差异：
+#    1. 对中文文本极敏感（[INST] 块内任何中文 → 输出 HTML 垃圾），Agent 模式需全英文文本
+#    2. Q/A 切片对最多 1 个（≥2 个触发垃圾输出）——见 agent/mainagent_tinygptv_stage4*.py
+tinygptv_stage4_model_name: "tinygptv"
+tinygptv_stage4_api_endpoint: "http://i-2.gpushare.com:31867/v1"
+tinygptv_stage4_max_tokens: 256
+tinygptv_stage4_stop: ["###"]
+tinygptv_stage4_temperature: 0.2
 
 # ---- 占位新模型 model-2 / model-3（与 InternVL 同服务器同端口，模型在服务端手动切换）----
 model-2_model_name: "model-2"

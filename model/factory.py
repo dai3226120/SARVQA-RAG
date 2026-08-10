@@ -175,6 +175,15 @@ class VLLMChatModelFactory(BaseModelFactory):
         self._prefix = prefix
 
     def generate(self) -> Optional[Embeddings | BaseChatModel]:
+        # 停止符/采样参数（可选）：按前缀配置，如 tinygptv_stop: ["###"]、
+        # tinygptv_repetition_penalty: 1.1（vLLM 专有参数经 extra_body 透传）；
+        # 未配置的模型（model-2/3 等）不带这些参数，行为不受影响
+        stop = model_conf.get(f'{self._prefix}_stop')
+        top_p = model_conf.get(f'{self._prefix}_top_p')
+        extra_body = {}
+        rep = model_conf.get(f'{self._prefix}_repetition_penalty')
+        if rep is not None:
+            extra_body["repetition_penalty"] = float(rep)
         return ChatOpenAI(
             model_name=model_conf[f'{self._prefix}_model_name'],
             api_key=model_conf.get(f'{self._prefix}_api_key', model_conf['internvl_api_key']),
@@ -182,6 +191,9 @@ class VLLMChatModelFactory(BaseModelFactory):
             temperature=float(model_conf.get(f'{self._prefix}_temperature', model_conf['internvl_temperature'])),
             streaming=True,
             max_tokens=model_conf.get(f'{self._prefix}_max_tokens', model_conf['internvl_max_tokens']),
+            stop=stop,
+            top_p=top_p,
+            extra_body=extra_body or None,
         )
 
 
@@ -194,7 +206,8 @@ huggingface_embed_model = _ThreadSafeEmbeddings(  # 线程安全包装：消除 
 doubao_seed_20_mini_model = DoubaoSeed20MiniModelFactory().generate()  # 多模态模型
 internvl2_8b_model = InternVL2ModelFactory().generate()  # 图像识别模型
 internvl3_5_8b_model = InternVL35ModelFactory().generate()  # 图像识别模型
-tinygptv_model = VLLMChatModelFactory("tinygptv").generate()  # TinyGPT-V（vLLM，8080 端口）
+tinygptv_model = VLLMChatModelFactory("tinygptv").generate()  # TinyGPT-V/SAR-GPT（vLLM）
+tinygptv_stage4_model = VLLMChatModelFactory("tinygptv_stage4").generate()  # 官方 Stage4（[INST] 模板）
 model_2_model = VLLMChatModelFactory("model-2").generate()     # 占位新模型2（vLLM）
 model_3_model = VLLMChatModelFactory("model-3").generate()     # 占位新模型3（vLLM）
 doubao_1_5_lite_model = DoubaoLiteModelFactory().generate()  # LLM 语义判断模型
