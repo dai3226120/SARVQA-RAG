@@ -36,12 +36,12 @@ model_types:
   agent_doubao: "agent-doubao"
   agent_internvl: "agent-internvl"
   qwen37_plus: "qwen37-plus"
-  # vLLM 部署模型；tinygptv 已正式发布（公网端点同 InternVL），model-2/3 为占位（发布时改名为正式模型名）
+  # vLLM/OpenAI 兼容部署模型；tinygptv/stage4/geochat/skyeyegpt 已发布（公网端点同 InternVL）
   tinygptv: "tinygptv"
   tinygptv_stage4: "tinygptv-stage4"   # 官方 Stage4（[INST] 模板，与 tinygptv 同服务端）
   agent_tinygptv: "agent-tinygptv"
-  model_2: "model-2"
-  model_3: "model-3"
+  geochat: "geochat"                   # GeoChat-7B（LLaVA-1.5，同服务端）
+  skyeyegpt: "skyeyegpt"               # SkyEyeGPT（MiniGPT-v2 架构，OpenAI 兼容服务端，同端点）
 
 # ---- 模型标签映射 ----
 file_tags:
@@ -54,5 +54,5 @@ file_tags:
   "tinygptv": "tinygptv"
   "tinygptv-stage4": "tinygptv-stage4"
   "agent-tinygptv": "agent-text-tinygptv"
-  "model-2": "model-2"
-  "model-3": "model-3"
+  "geochat": "geochat"
+  "skyeyegpt": "skyeyegpt"

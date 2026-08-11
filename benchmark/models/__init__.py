@@ -7,7 +7,7 @@ from .doubao_seed import DoubaoAPIClient
 from .internvl import InternVLAPIClient
 from .main_agent import MainAgentClient
 from .qwen37_plus import Qwen37PlusAPIClient
-from .vllm_models import tinygptv_client, tinygptv_stage4_client, model_2_client, model_3_client  # vLLM 部署模型（tinygptv / stage4 / 占位）
+from .vllm_models import tinygptv_client, tinygptv_stage4_client, geochat_client, skyeyegpt_client  # vLLM/OpenAI 兼容部署模型（tinygptv / stage4 / geochat / skyeyegpt）
 
 # 非 Agent 全局实例
 doubao_client = DoubaoAPIClient()

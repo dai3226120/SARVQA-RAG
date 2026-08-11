@@ -164,10 +164,10 @@ class InternVL35ModelFactory(BaseModelFactory):
             max_tokens=model_conf['internvl_max_tokens'],
         )
 
-# vLLM 部署模型工厂（tinygptv / model-2/3）：
+# vLLM/OpenAI 兼容部署模型工厂（tinygptv / tinygptv-stage4 / geochat / skyeyegpt）：
 # 字段未单独配置时自动沿用 InternVL 的部署参数（端点/API Key/温度/输出上限），
 # 单独配置的字段优先（如 tinygptv 的输出上限）。
-# ⚠️ 改名：发布正式模型时把 tinygptv / model-2/3 替换为正式模型名（实例名 + 下方配置前缀）
+# ⚠️ 改名：发布正式模型时把占位名替换为正式模型名（实例名 + 下方配置前缀）
 class VLLMChatModelFactory(BaseModelFactory):
     """vLLM 部署模型工厂，按配置前缀读取 model.yml 中的模型参数"""
 
@@ -208,7 +208,7 @@ internvl2_8b_model = InternVL2ModelFactory().generate()  # 图像识别模型
 internvl3_5_8b_model = InternVL35ModelFactory().generate()  # 图像识别模型
 tinygptv_model = VLLMChatModelFactory("tinygptv").generate()  # TinyGPT-V/SAR-GPT（vLLM）
 tinygptv_stage4_model = VLLMChatModelFactory("tinygptv_stage4").generate()  # 官方 Stage4（[INST] 模板）
-model_2_model = VLLMChatModelFactory("model-2").generate()     # 占位新模型2（vLLM）
-model_3_model = VLLMChatModelFactory("model-3").generate()     # 占位新模型3（vLLM）
+geochat_model = VLLMChatModelFactory("geochat").generate()    # GeoChat-7B（LLaVA-1.5，vLLM）
+skyeyegpt_model = VLLMChatModelFactory("skyeyegpt").generate()  # SkyEyeGPT（MiniGPT-v2 架构，OpenAI 兼容服务端）
 doubao_1_5_lite_model = DoubaoLiteModelFactory().generate()  # LLM 语义判断模型
 qwen37_plus_model = Qwen37PlusModelFactory().generate()  # Qwen3.7 Plus 文本模型

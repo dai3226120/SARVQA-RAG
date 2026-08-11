@@ -27,7 +27,7 @@ internvl_temperature: 0.2
 internvl_timeout: 30
 internvl_max_tokens: 20480   # 输出上限，须 ≤ vLLM 服务端 --max-model-len（当前 4096），否则返回 400
 
-# ====================== 独立 vLLM 模型配置（tinygptv / model-2 / model-3）======================
+# ====================== 独立 vLLM/OpenAI 兼容部署模型配置（tinygptv / geochat / skyeyegpt）======================
 # 每个模型可单独覆盖 模型名/端点/API Key/温度/输出上限；
 # 未配置的字段自动沿用 InternVL 的部署参数（端点 31867、输出上限 internvl_max_tokens）。
 # ⚠️ model_name 的值 = vLLM 服务端实际提供的模型名
@@ -58,9 +58,23 @@ tinygptv_stage4_max_tokens: 256
 tinygptv_stage4_stop: ["###"]
 tinygptv_stage4_temperature: 0.2
 
-# ---- 占位新模型 model-2 / model-3（与 InternVL 同服务器同端口，模型在服务端手动切换）----
-model-2_model_name: "model-2"
-model-3_model_name: "model-3"
+# ---- geochat（GeoChat-7B，LLaVA-1.5 架构/Vicuna-7B 底座；vLLM 部署，公网映射 31867）----
+# 部署见《GeoChat部署指南》：--served-model-name geochat-7B，max-model-len 4096，
+# LLaVA-1.5 chat template（USER: <image>\n{q} ASSISTANT:）由服务端渲染。
+# 客户端发裸问题（{q} 位置即问题本身），temperature 按指南 0.0（贪心）
+geochat_model_name: "geochat-7B"
+geochat_api_endpoint: "http://i-2.gpushare.com:31867/v1"
+geochat_max_tokens: 256
+geochat_temperature: 0.0
+
+# ---- skyeyegpt（SkyEyeGPT，MiniGPT-v2 架构/EVA-ViT-g/LLaMA2-7B+LoRA）----
+# 部署见《SkyEyeGPT部署指南》：MiniGPT-4 官方推理管线 + OpenAI 兼容 API（非 vLLM，但接口契约一致）；
+# 服务端内部 localhost:8080，公网统一映射为 i-2.gpushare.com:31867（与 tinygptv 同一对外端点）；
+# --model-id SkyEyeGPT；⚠️ 服务端为串行推理（单锁），评测并发建议调低（如 MAX_WORKERS=20）
+skyeyegpt_model_name: "SkyEyeGPT"
+skyeyegpt_api_endpoint: "http://i-2.gpushare.com:31867/v1"
+skyeyegpt_max_tokens: 256
+skyeyegpt_temperature: 0.2
 
 # ====================== Qwen3.7-Plus 配置 ======================
 qwen37_plus_model_name: qwen3.7-plus

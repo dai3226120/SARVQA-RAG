@@ -52,8 +52,8 @@ from models import (
     tinygptv_stage4_client,
     tinygptv_agent_client,
     tinygptv_agent_rscsv_client,
-    model_2_client,
-    model_3_client,
+    geochat_client,
+    skyeyegpt_client,
 )
 from utils.print_utils import print_separator
 
@@ -69,14 +69,15 @@ from utils.print_utils import print_separator
 #     - agent-text-internVL_rscsv: 文本InternVL模型（RSCSV）
 #     - tinygptv: TinyGPT-V/SAR-GPT（vLLM 部署，公网端点与 InternVL 相同）
 #     - tinygptv-stage4: 官方 Stage4（[INST] 模板，与 tinygptv 同服务端，模型在服务端手动切换）
+#     - geochat: GeoChat-7B（LLaVA-1.5 架构，同服务端；部署见《GeoChat部署指南》）
 #     - agent-text-tinygptv: TinyGPT-V Agent（doubao 收集 RAG → tinygptv 视觉回答）
 #     - agent-text-tinygptv_rscsv: TinyGPT-V Agent（RSCSV 切片检索）
-#     - model-2/3: 占位新模型（vLLM 部署，与 InternVL 同服务器同端口，模型在服务端手动切换）
+#     - skyeyegpt: SkyEyeGPT（MiniGPT-v2 架构，OpenAI 兼容 API 服务端，公网端点同 InternVL；部署见《SkyEyeGPT部署指南》）
 
 # MODEL_KEY = "doubao-seed"
-MODEL_KEY = "agent-text-doubao-seed"
+# MODEL_KEY = "agent-text-doubao-seed"
 # MODEL_KEY = "agent-text-doubao-seed_rscsv"
-# MODEL_KEY = "agent-text-doubao-seed_knowledge"
+
 
 # MODEL_KEY = "internVL"
 # MODEL_KEY = "agent-text-internVL"
@@ -87,8 +88,9 @@ MODEL_KEY = "agent-text-doubao-seed"
 # MODEL_KEY = "tinygptv"        # SAR-GPT（Instruct 模板）
 # MODEL_KEY = "tinygptv-stage4"  # 官方 Stage4（[INST] 模板；服务端切换模型后选用）
 
-# MODEL_KEY = "model-2"
-# MODEL_KEY = "model-3"
+MODEL_KEY = "skyeyegpt"       # SkyEyeGPT（MiniGPT-v2 架构，OpenAI 兼容服务端；部署见《SkyEyeGPT部署指南》）
+
+# MODEL_KEY = "geochat"       # GeoChat-7B（LLaVA-1.5；服务端切换模型后选用）
 
 
 # ====================== 流水线模式配置 ======================
@@ -117,12 +119,8 @@ _MODEL_REGISTRY = {
         "api_call": internvl_client.call,
         "is_agent": False,
     },
-    # ---- vLLM 部署模型（tinygptv 已发布 / model-2、model-3 占位）----
-    # ⚠️ 用法：测试时把上方 MODEL_KEY 改为 "tinygptv" / "model-2" / "model-3" 即可。
-    # ⚠️ 改名：发布正式模型时把 "model-2" 等替换为正式名，并同步修改（搜索对应模型名）：
-    #    config/model.yml、config/eval.yml、config/__init__.py、
-    #    model/factory.py、benchmark/models/vllm_models.py、benchmark/models/__init__.py
-    #    其中 file_tag 决定结果目录/文件名，建议同时改为正式模型名。
+    # ---- vLLM/OpenAI 兼容部署模型（tinygptv / tinygptv-stage4 / geochat / skyeyegpt 已发布）----
+    # ⚠️ 用法：测试时把上方 MODEL_KEY 改为 "tinygptv" / "tinygptv-stage4" / "geochat" / "skyeyegpt" 即可。
     "tinygptv": {
         "model_type": cfg.ModelType.TINYGPTV,
         "file_tag": cfg.get_file_tag(cfg.ModelType.TINYGPTV),
@@ -153,18 +151,18 @@ _MODEL_REGISTRY = {
         "api_call": tinygptv_agent_rscsv_client.call,
         "is_agent": True,
     },
-    "model-2": {
-        "model_type": cfg.ModelType.MODEL_2,
-        "file_tag": cfg.get_file_tag(cfg.ModelType.MODEL_2),
-        "client": model_2_client,
-        "api_call": model_2_client.call,
+    "geochat": {
+        "model_type": cfg.ModelType.GEOCHAT,
+        "file_tag": cfg.get_file_tag(cfg.ModelType.GEOCHAT),
+        "client": geochat_client,
+        "api_call": geochat_client.call,
         "is_agent": False,
     },
-    "model-3": {
-        "model_type": cfg.ModelType.MODEL_3,
-        "file_tag": cfg.get_file_tag(cfg.ModelType.MODEL_3),
-        "client": model_3_client,
-        "api_call": model_3_client.call,
+    "skyeyegpt": {
+        "model_type": cfg.ModelType.SKYEYEGPT,
+        "file_tag": cfg.get_file_tag(cfg.ModelType.SKYEYEGPT),
+        "client": skyeyegpt_client,
+        "api_call": skyeyegpt_client.call,
         "is_agent": False,
     },
     "agent-text-doubao-seed": {
@@ -219,7 +217,8 @@ IMAGE_BASE_PATH = cfg.path_config.IMAGE_BASE_PATH
 # ====================== 数据处理参数（可在此处直接修改）======================
 MAX_PROCESS_ROWS = 20000
 START_ROW = 0
-MAX_WORKERS = 10  # 限流边界实测：10 无重试 / 15 起重试（并发型限流，sleep 无效）  # 降并发规避 API 限流重试（实测 50 并发触发限流，37s/次 → 10 并发 10s/次）
+MAX_WORKERS = 20  # 限流边界实测：10 无重试 / 15 起重试（并发型限流，sleep 无效）  # 降并发规避 API 限流重试（实测 50 并发触发限流，37s/次 → 10 并发 10s/次）
+BENCH_MAX_WORKERS = 100  # 评估阶段并发（本地计算 cosine/ROUGE-L/BLEU/METEOR，无 API 限流，可调大提速）
 BATCH_SAVE_THRESHOLD = 100
 PROGRESS_INTERVAL = MAX_WORKERS  # 调用进度打印间隔（条）：每完成 N 条打印一行进度
 
@@ -396,6 +395,7 @@ def run_benchmark(file_tag: str, output_dir: str, predicted_csv: str = None) -> 
             input_csv_path=predicted_csv,
             result_dir=output_dir,
             base_filename=base_filename,
+            max_workers=BENCH_MAX_WORKERS,  # 评估并发，见上方数据处理参数区
             print_report=False,  # 统计报告统一在流程末尾汇总展示
         )
 

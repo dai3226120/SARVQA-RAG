@@ -1,11 +1,14 @@
 """
-vLLM 部署模型客户端（tinygptv / model-2 / model-3）
-- tinygptv: TinyGPT-V（vLLM 部署；公网端点与 InternVL 相同 i-2.gpushare.com:31867，
+vLLM / OpenAI 兼容部署模型客户端（tinygptv / tinygptv-stage4 / geochat / skyeyegpt）
+- tinygptv: TinyGPT-V/SAR-GPT（vLLM 部署；公网端点与 InternVL 相同 i-2.gpushare.com:31867，
   服务端内部为 localhost:8080，发布时由服务端切换映射）
-- model-2 / model-3: 占位新模型（与 InternVL 同服务器同端口，模型在服务端手动切换）
+- tinygptv-stage4: 官方 Stage4（[INST] 模板，同服务端）
+- geochat: GeoChat-7B（LLaVA-1.5 架构，同服务端；部署见《GeoChat部署指南》）
+- skyeyegpt: SkyEyeGPT（MiniGPT-v2 架构，OpenAI 兼容 API 服务端，同端点；
+  部署见《SkyEyeGPT部署指南》）
 
 ⚠️ 用法 / 改名（发布正式模型时）：
-    1. 把 model-2/3（或 tinygptv）替换为正式模型名（客户端实例名 + label）
+    1. 把占位名替换为正式模型名（客户端实例名 + label）
     2. 同步修改（搜索对应模型名即可定位）：
        - config/model.yml             模型名/端点等配置
        - config/eval.yml              model_types / file_tags
@@ -14,12 +17,12 @@ vLLM 部署模型客户端（tinygptv / model-2 / model-3）
        - benchmark/models/__init__.py 导出
        - benchmark/main_eval.py       _MODEL_REGISTRY 条目与 MODEL_KEY 注释
 """
-from model.factory import tinygptv_model, tinygptv_stage4_model, model_2_model, model_3_model
+from model.factory import tinygptv_model, tinygptv_stage4_model, geochat_model, skyeyegpt_model
 from .base_model import BaseAPIClient
 
 
 class VLLMAPIClient(BaseAPIClient):
-    """vLLM 部署模型通用客户端（tinygptv / model-2/3）"""
+    """vLLM/OpenAI 兼容部署模型通用客户端（tinygptv / tinygptv-stage4 / geochat / skyeyegpt）"""
 
     def __init__(self, model_instance, model_label="vllm"):
         super().__init__(model_instance, model_label=model_label)
@@ -37,9 +40,32 @@ class TinyGPTVAPIClient(VLLMAPIClient):
         return question
 
 
+class GeoChatAPIClient(VLLMAPIClient):
+    """GeoChat-7B 专用客户端：视觉轮直接发送裸问题
+
+    GeoChat（LLaVA-1.5 架构）服务端 chat template 渲染 USER: <image>\n{q} ASSISTANT:，
+    {q} 位置为裸问题本身（部署指南示例均为裸问题），不套 DEFAULT_PROMPT 英文指令。
+    """
+
+    def _build_formatted_prompt(self, question, prompt_template=None):
+        return question
+
+
+class SkyEyeGPTAPIClient(VLLMAPIClient):
+    """SkyEyeGPT 专用客户端：视觉轮直接发送裸问题
+
+    SkyEyeGPT（MiniGPT-v2 架构）经 OpenAI 兼容 API 服务端推理（非 vLLM，但接口契约一致）；
+    服务端负责 [INST] 等模板包装，messages 中 text 为裸问题（部署指南示例即裸问题），
+    不套 DEFAULT_PROMPT 英文指令。⚠️ 服务端为串行推理（单锁），并发评测会排队。
+    """
+
+    def _build_formatted_prompt(self, question, prompt_template=None):
+        return question
+
+
 tinygptv_client = TinyGPTVAPIClient(tinygptv_model, model_label="tinygptv")
 # Stage4（官方检查点，[INST] 模板）：与 tinygptv 同服务端，模型在服务端手动切换；
 # 普通模式同样发裸问题（服务端模板负责 [INST] 包装），仅结果目录/文件标签区分
 tinygptv_stage4_client = TinyGPTVAPIClient(tinygptv_stage4_model, model_label="tinygptv-stage4")
-model_2_client = VLLMAPIClient(model_2_model, model_label="model-2")
-model_3_client = VLLMAPIClient(model_3_model, model_label="model-3")
+geochat_client = GeoChatAPIClient(geochat_model, model_label="geochat")
+skyeyegpt_client = SkyEyeGPTAPIClient(skyeyegpt_model, model_label="skyeyegpt")
