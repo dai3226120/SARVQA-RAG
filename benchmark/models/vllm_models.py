@@ -6,6 +6,7 @@ vLLM / OpenAI 兼容部署模型客户端（tinygptv / tinygptv-stage4 / geochat
 - geochat: GeoChat-7B（LLaVA-1.5 架构，同服务端；部署见《GeoChat部署指南》）
 - skyeyegpt: SkyEyeGPT（MiniGPT-v2 架构，OpenAI 兼容 API 服务端，同端点；
   部署见《SkyEyeGPT部署指南》）
+- imagerag: ImageRAG（InternVL2.5-8B+LoRA，vLLM 部署，同端点；部署见《ImageRAG部署指南》）
 
 ⚠️ 用法 / 改名（发布正式模型时）：
     1. 把占位名替换为正式模型名（客户端实例名 + label）
@@ -17,7 +18,7 @@ vLLM / OpenAI 兼容部署模型客户端（tinygptv / tinygptv-stage4 / geochat
        - benchmark/models/__init__.py 导出
        - benchmark/main_eval.py       _MODEL_REGISTRY 条目与 MODEL_KEY 注释
 """
-from model.factory import tinygptv_model, tinygptv_stage4_model, geochat_model, skyeyegpt_model
+from model.factory import tinygptv_model, tinygptv_stage4_model, geochat_model, skyeyegpt_model, imagerag_model
 from .base_model import BaseAPIClient
 
 
@@ -63,9 +64,22 @@ class SkyEyeGPTAPIClient(VLLMAPIClient):
         return question
 
 
+class ImageRAGAPIClient(VLLMAPIClient):
+    """ImageRAG 专用客户端：视觉轮直接发送裸问题
+
+    ImageRAG（InternVL2.5-8B+LoRA）由 vLLM 托管，InternVL chat template 由服务端渲染，
+    messages 中 text 为裸问题（部署指南示例即裸问题），不套 DEFAULT_PROMPT 英文指令。
+    视觉线索检索（多图）由服务端侧实现，OpenAI 接口为单主图问答。
+    """
+
+    def _build_formatted_prompt(self, question, prompt_template=None):
+        return question
+
+
 tinygptv_client = TinyGPTVAPIClient(tinygptv_model, model_label="tinygptv")
 # Stage4（官方检查点，[INST] 模板）：与 tinygptv 同服务端，模型在服务端手动切换；
 # 普通模式同样发裸问题（服务端模板负责 [INST] 包装），仅结果目录/文件标签区分
 tinygptv_stage4_client = TinyGPTVAPIClient(tinygptv_stage4_model, model_label="tinygptv-stage4")
 geochat_client = GeoChatAPIClient(geochat_model, model_label="geochat")
 skyeyegpt_client = SkyEyeGPTAPIClient(skyeyegpt_model, model_label="skyeyegpt")
+imagerag_client = ImageRAGAPIClient(imagerag_model, model_label="imagerag")

@@ -19,6 +19,11 @@ class RagConfig:
     # ── 检索参数 ──
     k: int = int(chroma_conf.get("k", 1))
     slice_k: int = int(chroma_conf.get("slice_k", 50))
+    # 知识库（阶段0）检索：返回条数 + 相关性阈值（低于阈值的结果不注入上下文）
+    knowledge_retrieve_k: int = int(chroma_conf.get("knowledge_retrieve_k", 5))
+    knowledge_relevance_threshold: float = float(
+        chroma_conf.get("knowledge_relevance_threshold", 0.20)
+    )
     # membership_k: 已弃用，隶属度检索固定取全量库 top-1（见 degree_calculator）
     # top_p: 已弃用，检索多少就送多少，切片检索固定保留全部 slice_k 条
 

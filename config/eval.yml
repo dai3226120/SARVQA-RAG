@@ -42,6 +42,7 @@ model_types:
   agent_tinygptv: "agent-tinygptv"
   geochat: "geochat"                   # GeoChat-7B（LLaVA-1.5，同服务端）
   skyeyegpt: "skyeyegpt"               # SkyEyeGPT（MiniGPT-v2 架构，OpenAI 兼容服务端，同端点）
+  imagerag: "imagerag"                 # ImageRAG（InternVL2.5-8B+LoRA，vLLM，同端点）
 
 # ---- 模型标签映射 ----
 file_tags:
@@ -56,3 +57,4 @@ file_tags:
   "agent-tinygptv": "agent-text-tinygptv"
   "geochat": "geochat"
   "skyeyegpt": "skyeyegpt"
+  "imagerag": "imagerag"

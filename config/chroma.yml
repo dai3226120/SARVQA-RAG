@@ -26,6 +26,11 @@ vlm_agent_type: "doubao"  # 可选: doubao (使用 mainagent_rscsv), internvl (�
 chunk_size: 500 # 从 200 放大到 500，保证专业学术段落、公式、定义的完整语义
 chunk_overlap: 50 # 保持 10% 左右的重叠度，防止边缘信息丢失
 separators: ["\n\n", "\n", " ", ""] # 💡 移除 . 和 !，引入空格，完美适配英文语料切片，防止专业术语/浮点数被切断
+# 知识库（阶段0）检索参数：返回条数与相关性阈值
+# 实测分数分布（BGE-m3 + Chroma relevance score）：相关段落 0.25-0.34，无关噪音 0.16-0.22；
+# 阈值过滤低相关片段，避免将无关上下文注入模型；候选多取 3 倍再过滤，保证过滤后仍够数
+knowledge_retrieve_k: 5            # 知识库最终返回条数（注入 LLM 上下文的条数）
+knowledge_relevance_threshold: 0.20  # 相关性阈值：低于此分数的检索结果不注入上下文
 
 # 以下是你原有的高级聚类配置，保持原样：
 clustering:

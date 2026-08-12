@@ -4,15 +4,49 @@ from rag.services.knowledge_service import KnowledgeRagService  # 向量检索�
 from rag.services.membership_service import MembershipHybridService   # 隶属度混合检索服务
 from rag.services.slice_service import SliceRetrievalService   # 切片检索服务
 import random
+import threading
 from utils.config_handler import agent_conf  # 配置处理器
 from utils.path_tool import get_abs_path    # 获取绝对路径工具
 from utils.logger_handler import logger      # 日志处理器
 import os
 
-# 初始化服务实例
-rag = KnowledgeRagService()  # 用于弱电工程相关检索
-rag_rscsv_service = MembershipHybridService()  # 用于遥感问答检索（隶属度+切片混合）
-rag_rscsv_service_rscsv = SliceRetrievalService()  # 用于遥感问答检索（只有全局切片）
+# 服务实例懒加载（PEP 562 模块级 __getattr__）：
+# knowledge 模式（mainagent_knowledge）只注册 rag_knowledge_context 工具（阶段0 知识库检索），
+# 若在模块顶部直接实例化三个服务，membership（切片库+类别中心预热）与 slice（faiss 全量索引）
+# 也会被一并初始化——改为首次访问时才实例化，无关模式不加载无关服务。
+_service_instances: dict = {}
+_service_lock = threading.Lock()
+
+
+def _create_service(name: str):
+    """按需创建服务实例"""
+    if name == "rag":
+        return KnowledgeRagService()
+    if name == "rag_rscsv_service":
+        return MembershipHybridService()
+    if name == "rag_rscsv_service_rscsv":
+        return SliceRetrievalService()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def _get_service(name: str):
+    """按需获取服务实例（懒加载，线程安全；与模块级 __getattr__ 共用同一缓存）"""
+    if name not in _service_instances:
+        with _service_lock:
+            if name not in _service_instances:
+                _service_instances[name] = _create_service(name)
+    return _service_instances[name]
+
+
+def __getattr__(name: str):
+    """模块级懒加载：rag / rag_rscsv_service / rag_rscsv_service_rscsv 首次访问时实例化
+    （覆盖模块属性访问与 from-import；函数体内的全局名字查找不经过本函数，
+    工具函数内部须用 _get_service 显式获取）"""
+    if name in ("rag", "rag_rscsv_service", "rag_rscsv_service_rscsv"):
+        return _get_service(name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 # 测试数据：用户ID列表和月份列表
 user_ids = ["1001", "1002"]
 month_arr = ["2025-01", "2025-02"]
@@ -21,30 +55,33 @@ month_arr = ["2025-01", "2025-02"]
 external_data = {}
 
 # --- 工具函数定义 ---
+# 注意：函数体内的服务实例须用 _get_service 显式获取（懒加载），
+# 不能直接写全局名 rag / rag_rscsv_service / rag_rscsv_service_rscsv
+# （函数内全局名字查找不经过模块级 __getattr__，会 NameError）
 @tool(description="从向量存储中检索遥感通用知识相关参考资料")
 def rag_summarize(query: str) -> str:
     """遥感通用知识相关检索工具"""
-    return rag.rag_summarize(query)
+    return _get_service('rag').rag_summarize(query)
 
 @tool(description="从知识库中检索遥感通用知识参考上下文（仅阶段0检索，不做LLM总结）。注意：请务必直接透传用户的原始输入，不要做任何总结或改写。")
 def rag_knowledge_context(query: str) -> str:
     """遥感知识库上下文检索工具（阶段0，仅检索不总结）"""
     print(f"[rag_knowledge_context tool] Received query: {query}")
-    return rag.retrieve_context(query)
+    return _get_service('rag').retrieve_context(query)
 
 # @tool(description="从向量存储中检索遥感问答相关参考资料")
 @tool(description="从向量存储中检索遥感问答相关参考资料。注意：请务必直接透传用户的原始输入，不要做任何总结或改写。")
 def rag_rscsv(query: str) -> str:
     """遥感问答检索工具"""
     print(f"[rag_rscsv tool] Received query: {query}")  # 调试日志，查看输入查询
-    return rag_rscsv_service.retrieve(query)
+    return _get_service('rag_rscsv_service').retrieve(query)
 
 # @tool(description="从向量存储中检索遥感问答相关参考资料")
 @tool(description="从向量存储中检索遥感问答相关参考资料。注意：请务必直接透传用户的原始输入，不要做任何总结或改写。")
 def rag_rscsv_rscsv(query: str) -> str:
     """遥感问答检索工具"""
     print(f"[rag_rscsv_rscsv tool] Received query: {query}")  # 调试日志，查看输入查询
-    return rag_rscsv_service_rscsv.retrieve(query)
+    return _get_service('rag_rscsv_service_rscsv').retrieve(query)
 
 @tool(description="获取指定的城市天气，以消息字符串形式返回")
 def get_weather(city: str) -> str:

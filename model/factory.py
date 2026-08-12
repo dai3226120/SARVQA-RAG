@@ -210,5 +210,6 @@ tinygptv_model = VLLMChatModelFactory("tinygptv").generate()  # TinyGPT-V/SAR-GP
 tinygptv_stage4_model = VLLMChatModelFactory("tinygptv_stage4").generate()  # 官方 Stage4（[INST] 模板）
 geochat_model = VLLMChatModelFactory("geochat").generate()    # GeoChat-7B（LLaVA-1.5，vLLM）
 skyeyegpt_model = VLLMChatModelFactory("skyeyegpt").generate()  # SkyEyeGPT（MiniGPT-v2 架构，OpenAI 兼容服务端）
+imagerag_model = VLLMChatModelFactory("imagerag").generate()    # ImageRAG（InternVL2.5-8B+LoRA，vLLM）
 doubao_1_5_lite_model = DoubaoLiteModelFactory().generate()  # LLM 语义判断模型
 qwen37_plus_model = Qwen37PlusModelFactory().generate()  # Qwen3.7 Plus 文本模型

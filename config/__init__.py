@@ -83,6 +83,7 @@ class ModelType:
     AGENT_TINYGPTV = eval_conf['model_types']['agent_tinygptv']
     GEOCHAT = eval_conf['model_types']['geochat']                  # GeoChat-7B（LLaVA-1.5）
     SKYEYEGPT = eval_conf['model_types']['skyeyegpt']              # SkyEyeGPT（MiniGPT-v2 架构）
+    IMAGERAG = eval_conf['model_types']['imagerag']                # ImageRAG（InternVL2.5-8B+LoRA）
 
 
 def get_file_tag(model_type: str) -> str:

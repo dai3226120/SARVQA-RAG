@@ -76,6 +76,16 @@ skyeyegpt_api_endpoint: "http://i-2.gpushare.com:31867/v1"
 skyeyegpt_max_tokens: 256
 skyeyegpt_temperature: 0.2
 
+# ---- imagerag（ImageRAG，InternVL2.5-8B+LoRA，vLLM 部署）----
+# 部署见《ImageRAG部署指南》：vLLM 0.27.0 托管，--served-model-name imagerag；
+# 服务端内部 localhost:8080，公网统一映射为 i-2.gpushare.com:31867（与 tinygptv 同一对外端点）；
+# max-model-len 8192，支持多图（≤5，视觉线索检索由服务端客户端侧实现，OpenAI 接口为单主图问答）；
+# 客户端发裸问题（InternVL chat template 由 vLLM 渲染），temperature 按指南 0.2
+imagerag_model_name: "imagerag"
+imagerag_api_endpoint: "http://i-2.gpushare.com:31867/v1"
+imagerag_max_tokens: 256
+imagerag_temperature: 0.2
+
 # ====================== Qwen3.7-Plus 配置 ======================
 qwen37_plus_model_name: qwen3.7-plus
 qwen37_plus_api_endpoint: "https://llm-dap1vggtvuse02vt.cn-beijing.maas.aliyuncs.com/api/v1"

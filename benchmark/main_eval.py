@@ -54,6 +54,7 @@ from models import (
     tinygptv_agent_rscsv_client,
     geochat_client,
     skyeyegpt_client,
+    imagerag_client,
 )
 from utils.print_utils import print_separator
 
@@ -73,8 +74,10 @@ from utils.print_utils import print_separator
 #     - agent-text-tinygptv: TinyGPT-V Agent（doubao 收集 RAG → tinygptv 视觉回答）
 #     - agent-text-tinygptv_rscsv: TinyGPT-V Agent（RSCSV 切片检索）
 #     - skyeyegpt: SkyEyeGPT（MiniGPT-v2 架构，OpenAI 兼容 API 服务端，公网端点同 InternVL；部署见《SkyEyeGPT部署指南》）
+#     - imagerag: ImageRAG（InternVL2.5-8B+LoRA，vLLM 部署，公网端点同 InternVL；部署见《ImageRAG部署指南》）
 
-# MODEL_KEY = "doubao-seed"
+
+MODEL_KEY = "doubao-seed"
 # MODEL_KEY = "agent-text-doubao-seed"
 # MODEL_KEY = "agent-text-doubao-seed_rscsv"
 
@@ -88,10 +91,11 @@ from utils.print_utils import print_separator
 # MODEL_KEY = "tinygptv"        # SAR-GPT（Instruct 模板）
 # MODEL_KEY = "tinygptv-stage4"  # 官方 Stage4（[INST] 模板；服务端切换模型后选用）
 
-MODEL_KEY = "skyeyegpt"       # SkyEyeGPT（MiniGPT-v2 架构，OpenAI 兼容服务端；部署见《SkyEyeGPT部署指南》）
+# MODEL_KEY = "skyeyegpt"       # SkyEyeGPT（MiniGPT-v2 架构，OpenAI 兼容服务端；部署见《SkyEyeGPT部署指南》）
 
 # MODEL_KEY = "geochat"       # GeoChat-7B（LLaVA-1.5；服务端切换模型后选用）
 
+# MODEL_KEY = "imagerag"  # ImageRAG（InternVL2.5-8B+LoRA，vLLM；部署见《ImageRAG部署指南》）
 
 # ====================== 流水线模式配置 ======================
 # 可选模式:
@@ -119,8 +123,8 @@ _MODEL_REGISTRY = {
         "api_call": internvl_client.call,
         "is_agent": False,
     },
-    # ---- vLLM/OpenAI 兼容部署模型（tinygptv / tinygptv-stage4 / geochat / skyeyegpt 已发布）----
-    # ⚠️ 用法：测试时把上方 MODEL_KEY 改为 "tinygptv" / "tinygptv-stage4" / "geochat" / "skyeyegpt" 即可。
+    # ---- vLLM/OpenAI 兼容部署模型（tinygptv / tinygptv-stage4 / geochat / skyeyegpt / imagerag 已发布）----
+    # ⚠️ 用法：测试时把上方 MODEL_KEY 改为 "tinygptv" / "tinygptv-stage4" / "geochat" / "skyeyegpt" / "imagerag" 即可。
     "tinygptv": {
         "model_type": cfg.ModelType.TINYGPTV,
         "file_tag": cfg.get_file_tag(cfg.ModelType.TINYGPTV),
@@ -163,6 +167,13 @@ _MODEL_REGISTRY = {
         "file_tag": cfg.get_file_tag(cfg.ModelType.SKYEYEGPT),
         "client": skyeyegpt_client,
         "api_call": skyeyegpt_client.call,
+        "is_agent": False,
+    },
+    "imagerag": {
+        "model_type": cfg.ModelType.IMAGERAG,
+        "file_tag": cfg.get_file_tag(cfg.ModelType.IMAGERAG),
+        "client": imagerag_client,
+        "api_call": imagerag_client.call,
         "is_agent": False,
     },
     "agent-text-doubao-seed": {
@@ -215,10 +226,12 @@ DATASET_TAG = "val"
 IMAGE_BASE_PATH = cfg.path_config.IMAGE_BASE_PATH
 
 # ====================== 数据处理参数（可在此处直接修改）======================
-MAX_PROCESS_ROWS = 20000
+MAX_PROCESS_ROWS = 5000  # 小批量测试（wiki 知识库）
 START_ROW = 0
-MAX_WORKERS = 20  # 限流边界实测：10 无重试 / 15 起重试（并发型限流，sleep 无效）  # 降并发规避 API 限流重试（实测 50 并发触发限流，37s/次 → 10 并发 10s/次）
+MAX_WORKERS = 100  # 限流边界实测：10 无重试 / 15 起重试（并发型限流，sleep 无效）  # 降并发规避 API 限流重试（实测 50 并发触发限流，37s/次 → 10 并发 10s/次）
 BENCH_MAX_WORKERS = 100  # 评估阶段并发（本地计算 cosine/ROUGE-L/BLEU/METEOR，无 API 限流，可调大提速）
+API_MAX_RETRIES = 3    # API 调用失败重试次数（连接断开/限流/502 等，对所有 MODEL_KEY 生效；0 不重试）
+API_RETRY_DELAY = 2.0  # 重试间隔（秒）
 BATCH_SAVE_THRESHOLD = 100
 PROGRESS_INTERVAL = MAX_WORKERS  # 调用进度打印间隔（条）：每完成 N 条打印一行进度
 
@@ -320,12 +333,16 @@ def run_prediction(model_key: str, output_dir: str) -> dict:
             include_metrics=True,
             prompt_template=cfg.prompt_config.AGENT_PROMPT,
             agent_client=client,
+            max_retries=API_MAX_RETRIES,
+            retry_delay=API_RETRY_DELAY,
         )
     else:
         process_func = create_process_row_func(
             api_call,
             include_metrics=True,
             prompt_template=cfg.prompt_config.DEFAULT_PROMPT,
+            max_retries=API_MAX_RETRIES,
+            retry_delay=API_RETRY_DELAY,
         )
 
     print_separator(char="-")

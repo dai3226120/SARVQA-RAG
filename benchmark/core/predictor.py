@@ -156,6 +156,10 @@ def process_vqa_data(
                 result_item = future.result(timeout=300)
                 if result_item is not None:
                     results.append(result_item)
+                else:
+                    # process_single_row 内部捕获异常后返回 None（不抛异常），
+                    # 必须在此计入失败，否则 failed_count 恒为 0
+                    failed_count += 1
 
                 if _is_tty:
                     # tqdm 进度条：每完成一条刷新（成功/失败实时）
@@ -230,7 +234,8 @@ def process_vqa_data(
         return None
 
 
-def create_process_row_func(api_call_func, include_metrics=False, prompt_template=None, agent_client=None):
+def create_process_row_func(api_call_func, include_metrics=False, prompt_template=None, agent_client=None,
+                            max_retries=0, retry_delay=2.0):
     """
     创建处理单行数据的函数
 
@@ -239,7 +244,31 @@ def create_process_row_func(api_call_func, include_metrics=False, prompt_templat
         include_metrics: 是否包含指标计算
         prompt_template: IG/ID 计算用的提示词模板（None 则使用 DEFAULT_PROMPT）
         agent_client: Agent 客户端实例（用于获取 RAG 增强的 IG/ID）
+        max_retries: API 调用失败重试次数（0 不重试）。对所有 MODEL_KEY 生效，覆盖两种失败：
+                    客户端抛异常、客户端把异常转成 "Error: ..." 文本返回（如 BaseAPIClient.call）
+        retry_delay: 重试间隔（秒）
     """
+
+    def _call_with_retry(index, image_path, question):
+        """带重试的 API 调用；重试耗尽后抛出最后一次异常，由外层统一捕获"""
+        last_error = None
+        for attempt in range(max_retries + 1):
+            try:
+                result = api_call_func(image_path, question)
+                if isinstance(result, str) and result.strip().lower().startswith('error'):
+                    # 客户端将异常转为 "Error: ..." 文本返回（不抛异常），同样视为失败
+                    raise RuntimeError(result.strip()[:200])
+                return result
+            except Exception as e:
+                last_error = e
+                if attempt < max_retries:
+                    safe_print(
+                        f"[RETRY] 第{index + 1}行 第{attempt + 1}/{max_retries}次调用失败: "
+                        f"{str(e)[:120]} | {retry_delay}秒后重试"
+                    )
+                    time.sleep(retry_delay)
+        raise last_error
+
     def process_single_row(index, row, image_base_path):
         try:
             id_text = clean_special_chars(row['id'])
@@ -249,7 +278,7 @@ def create_process_row_func(api_call_func, include_metrics=False, prompt_templat
 
             image_path_front = build_image_path(image_path, image_base_path)
 
-            predicted_answer = api_call_func(image_path_front, question_text)
+            predicted_answer = _call_with_retry(index, image_path_front, question_text)
             predicted_answer = clean_special_chars(predicted_answer)
             predicted_answer = predicted_answer.replace('\n', ' ').replace('\r', ' ').strip()
 
