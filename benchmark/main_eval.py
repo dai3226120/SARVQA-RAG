@@ -78,8 +78,9 @@ from utils.print_utils import print_separator
 
 
 MODEL_KEY = "doubao-seed"
-# MODEL_KEY = "agent-text-doubao-seed"
-# MODEL_KEY = "agent-text-doubao-seed_rscsv"
+# MODEL_KEY = "agent-text-doubao-seed"            # 隶属度+切片混合检索（阶段0+1+2）
+# MODEL_KEY = "agent-text-doubao-seed_knowledge"  # 仅阶段0 知识库检索（mainagent_knowledge）
+# MODEL_KEY = "agent-text-doubao-seed_rscsv"      # 仅切片检索（阶段0+2，无隶属度）
 
 
 # MODEL_KEY = "internVL"
@@ -228,7 +229,7 @@ IMAGE_BASE_PATH = cfg.path_config.IMAGE_BASE_PATH
 # ====================== 数据处理参数（可在此处直接修改）======================
 MAX_PROCESS_ROWS = 5000  # 小批量测试（wiki 知识库）
 START_ROW = 0
-MAX_WORKERS = 100  # 限流边界实测：10 无重试 / 15 起重试（并发型限流，sleep 无效）  # 降并发规避 API 限流重试（实测 50 并发触发限流，37s/次 → 10 并发 10s/次）
+MAX_WORKERS = 10  # 限流边界实测：10 无重试 / 15 起重试（并发型限流，sleep 无效）  # 降并发规避 API 限流重试（实测 50 并发触发限流，37s/次 → 10 并发 10s/次）
 BENCH_MAX_WORKERS = 100  # 评估阶段并发（本地计算 cosine/ROUGE-L/BLEU/METEOR，无 API 限流，可调大提速）
 API_MAX_RETRIES = 3    # API 调用失败重试次数（连接断开/限流/502 等，对所有 MODEL_KEY 生效；0 不重试）
 API_RETRY_DELAY = 2.0  # 重试间隔（秒）
