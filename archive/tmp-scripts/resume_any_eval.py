@@ -62,9 +62,13 @@ def main():
     tmp_csv = os.path.join(tmp_dir, "missing_input.csv")
     missing[['id', 'image', 'question', 'answer']].to_csv(tmp_csv, index=False, encoding='utf-8-sig')
 
+    # Agent 模型用 AGENT_PROMPT + agent_client（与 main_eval.py full 模式一致，
+    # 保证续跑部分与首次预测的提示词/IG-ID 计算方式相同）
+    is_agent = entry.get("is_agent", False)
     process_func = create_process_row_func(
         entry["api_call"], include_metrics=True,
-        prompt_template=cfg.prompt_config.DEFAULT_PROMPT,
+        prompt_template=cfg.prompt_config.AGENT_PROMPT if is_agent else cfg.prompt_config.DEFAULT_PROMPT,
+        agent_client=entry.get("client") if is_agent else None,
         max_retries=API_MAX_RETRIES, retry_delay=API_RETRY_DELAY,
     )
     result_df = process_vqa_data(
