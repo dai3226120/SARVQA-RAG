@@ -45,6 +45,7 @@ from models import (
     doubao_agent_client,
     doubao_agent_knowledge_client,
     internvl_agent_client,
+    internvl_agent_knowledge_client,
     doubao_agent_rscsv_client,
     internvl_agent_rscsv_client,
     qwen37_plus_client,
@@ -67,6 +68,7 @@ from utils.print_utils import print_separator
 #     - agent-text-doubao-seed: 文本Doubao模型
 #     - agent-text-doubao-seed_rscsv: 文本Doubao模型（RSCSV）
 #     - agent-text-internVL: 文本InternVL模型
+#     - agent-text-internVL_knowledge: 文本InternVL模型（仅阶段0 知识库检索，mainagent_internVL_knowledge）
 #     - agent-text-internVL_rscsv: 文本InternVL模型（RSCSV）
 #     - tinygptv: TinyGPT-V/SAR-GPT（vLLM 部署，公网端点与 InternVL 相同）
 #     - tinygptv-stage4: 官方 Stage4（[INST] 模板，与 tinygptv 同服务端，模型在服务端手动切换）
@@ -77,7 +79,7 @@ from utils.print_utils import print_separator
 #     - imagerag: ImageRAG（InternVL2.5-8B+LoRA，vLLM 部署，公网端点同 InternVL；部署见《ImageRAG部署指南》）
 
 
-MODEL_KEY = "doubao-seed"
+# MODEL_KEY = "doubao-seed"
 # MODEL_KEY = "agent-text-doubao-seed"            # 隶属度+切片混合检索（阶段0+1+2）
 # MODEL_KEY = "agent-text-doubao-seed_knowledge"  # 仅阶段0 知识库检索（mainagent_knowledge）
 # MODEL_KEY = "agent-text-doubao-seed_rscsv"      # 仅切片检索（阶段0+2，无隶属度）
@@ -85,6 +87,7 @@ MODEL_KEY = "doubao-seed"
 
 # MODEL_KEY = "internVL"
 # MODEL_KEY = "agent-text-internVL"
+# MODEL_KEY = "agent-text-internVL_knowledge"  # 仅阶段0 知识库检索（mainagent_internVL_knowledge）
 # MODEL_KEY = "agent-text-internVL_rscsv"
 
 # MODEL_KEY = "qwen37-plus"
@@ -203,6 +206,13 @@ _MODEL_REGISTRY = {
         "file_tag": cfg.get_file_tag(cfg.ModelType.AGENT_INTERNVL),
         "client": internvl_agent_client,
         "api_call": internvl_agent_client.call,
+        "is_agent": True,
+    },
+    "agent-text-internVL_knowledge": {
+        "model_type": cfg.ModelType.AGENT_INTERNVL,
+        "file_tag": "agent-text-internvl3-5-8b_knowledge",
+        "client": internvl_agent_knowledge_client,
+        "api_call": internvl_agent_knowledge_client.call,
         "is_agent": True,
     },
     "agent-text-internVL_rscsv": {

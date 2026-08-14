@@ -17,13 +17,14 @@ from benchmark.core.metrics import retrieval_metrics, compute_information_metric
 
 
 class MainAgentClient:
-    """MainAgent 客户端，支持 mainagent / mainagent_rscsv / mainagent_internVL / mainagent_internVL_rscsv 四种变体"""
+    """MainAgent 客户端，支持 mainagent / mainagent_rscsv / mainagent_internVL / mainagent_internVL_rscsv / mainagent_internVL_knowledge 等变体"""
 
     # 支持的 Agent 模块映射
     AGENT_MODULES = {
         "mainagent": "agent.mainagent",
         "mainagent_knowledge": "agent.mainagent_knowledge",
         "mainagent_internVL": "agent.mainagent_internVL",
+        "mainagent_internVL_knowledge": "agent.mainagent_internVL_knowledge",
         "mainagent_rscsv": "agent.mainagent_rscsv",
         "mainagent_internVL_rscsv": "agent.mainagent_internVL_rscsv",
         "mainagent_tinygptv": "agent.mainagent_tinygptv",            # TinyGPT-V 变体

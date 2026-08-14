@@ -18,6 +18,7 @@ qwen37_plus_client = Qwen37PlusAPIClient()
 doubao_agent_client = MainAgentClient("mainagent")
 doubao_agent_knowledge_client = MainAgentClient("mainagent_knowledge")
 internvl_agent_client = MainAgentClient("mainagent_internVL")
+internvl_agent_knowledge_client = MainAgentClient("mainagent_internVL_knowledge")
 doubao_agent_rscsv_client = MainAgentClient("mainagent_rscsv")
 internvl_agent_rscsv_client = MainAgentClient("mainagent_internVL_rscsv")
 tinygptv_agent_client = MainAgentClient("mainagent_tinygptv")          # TinyGPT-V Agent
