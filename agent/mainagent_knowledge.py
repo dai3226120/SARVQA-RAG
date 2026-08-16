@@ -20,7 +20,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 # 导入项目内的模块
 from model.factory import chat_model, embed_model, huggingface_embed_model, doubao_seed_20_mini_model, internvl2_8b_model, internvl3_5_8b_model
 from utils.prompt_loader import load_system_prompts
-from tools.agent_tools import rag_summarize,get_weather,get_user_location, get_user_id, rag_knowledge_context, to_openai_tools
+from tools.agent_tools import rag_summarize,get_weather,get_user_location, get_user_id, rag_knowledge_context, to_openai_tools, _get_service
 from tools.middleware import monitor_tool,log_before_model,report_prompt_switch,calculate_hit_rate
 from utils.logger_handler import logger
 
@@ -80,8 +80,8 @@ class MainAgent:
         return messages
 
     def get_last_trace(self):
-        """获取最后一次 RAG 检索的过程记录（仅阶段0 知识库上下文，无检索 trace，恒为 None）"""
-        return None
+        """获取最后一次 RAG 检索的过程记录（知识库上下文检索，来自 KnowledgeRagService）"""
+        return _get_service('rag').get_last_trace()
 
     # 多模态输入版本
     def execute_stream(self, query: str, image_file=None, history=None):

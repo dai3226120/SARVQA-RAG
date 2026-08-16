@@ -19,7 +19,7 @@ from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage, AI
 # 导入项目内的模块
 from model.factory import chat_model, embed_model, huggingface_embed_model, doubao_seed_20_mini_model, internvl2_8b_model, internvl3_5_8b_model
 from utils.prompt_loader import load_system_prompts
-from tools.agent_tools import rag_knowledge_context, to_openai_tools
+from tools.agent_tools import rag_knowledge_context, to_openai_tools, _get_service
 from tools.middleware import monitor_tool,log_before_model,report_prompt_switch
 from utils.logger_handler import logger
 
@@ -57,8 +57,8 @@ class MainAgent:
         return messages
 
     def get_last_trace(self):
-        """获取最后一次 RAG 检索的过程记录（仅阶段0 知识库上下文，无检索 trace，恒为 None）"""
-        return None
+        """获取最后一次 RAG 检索的过程记录（知识库上下文检索，来自 KnowledgeRagService）"""
+        return _get_service('rag').get_last_trace()
 
     # 多模态输入版本
     def execute_stream(self, query: str, image_file=None, history=None):
@@ -107,16 +107,24 @@ class MainAgent:
         self._last_rag_context = rag_context
 
         # ----- 第二步：用 internvl 多模态模型生成最终答案 -----
-        system_text = load_system_prompts()
-        if rag_context:
-            system_text += f"\n\n以下是检索到的相关背景信息：\n{rag_context}"
+        # 视觉轮使用简短直答 system：ReAct 提示词（load_system_prompts）是给 doubao 文本 agent 的，
+        # 原样塞给 InternVL 会诱导 <think>/复述参考资料（实测 42%-54% 答案带 think），
+        # 与 mainagent_tinygptv "视觉轮不使用 ReAct system" 的教训一致。
+        system_text = (
+            "You are an expert in SAR remote sensing image understanding. "
+            "Answer the question directly based on the image, in one concise English sentence. "
+            "Do not show thinking process or cite references."
+        )
 
-        # 追加最终答案的格式要求
-        system_text += "\n\n最终答案用一句话英文说明，不超过150字，不要使用例如或括号。"
+        # 检索背景注入 user 消息末尾（模型对末尾指令遵循度更高），而不是塞进 system
+        if rag_context:
+            query_text = f"{query}\n\n以下是检索到的相关背景信息：\n{rag_context}"
+        else:
+            query_text = query
 
         vision_messages = [
             SystemMessage(content=system_text),
-            HumanMessage(content=multi_modal_content)
+            HumanMessage(content=[{"type": "text", "text": query_text}, *multi_modal_content[1:]])
         ]
 
         try:

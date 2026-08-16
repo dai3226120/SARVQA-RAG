@@ -25,7 +25,7 @@ internvl_full_endpoint: "http://i-2.gpushare.com:31867/v1/chat/completions"
 internvl_api_key: "vllm-dummy-api-key"
 internvl_temperature: 0.2
 internvl_timeout: 30
-internvl_max_tokens: 20480   # 输出上限，须 ≤ vLLM 服务端 --max-model-len（当前 4096），否则返回 400
+internvl_max_tokens: 512   # 输出上限：限长兜底（Qwen3 底座默认 thinking，20480 会给长文放飞空间；512 对直答足够）
 
 # ====================== 独立 vLLM/OpenAI 兼容部署模型配置（tinygptv / geochat / skyeyegpt）======================
 # 每个模型可单独覆盖 模型名/端点/API Key/温度/输出上限；

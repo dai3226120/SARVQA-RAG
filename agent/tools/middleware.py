@@ -136,7 +136,7 @@ def monitor_tool(
     logger.info(f"[tool monitor]执行工具:{tool_name}")
     logger.info(f"[tool monitor]传入参数:{request.tool_call['args']}")
 
-    is_retrieval_tool = tool_name in ("rag_rscsv", "rag_rscsv_rscsv")
+    is_retrieval_tool = tool_name in ("rag_rscsv", "rag_rscsv_rscsv", "rag_knowledge_context")
     start_time = time.time() if is_retrieval_tool else None
 
     try:

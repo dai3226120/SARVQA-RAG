@@ -4,6 +4,7 @@
 负责：搜索参考资料 → 拼接上下文 → 提交给模型总结回复
 """
 import re
+import time
 
 from langchain_core.prompts import PromptTemplate
 from langchain_core.documents import Document
@@ -30,6 +31,12 @@ class KnowledgeRagService(BaseRetriever):
         self._prompt_template = PromptTemplate.from_template(prompt_text)
         self._model = doubao_seed_20_mini_model
         self._chain = self._prompt_template | self._model | StrOutputParser()
+        # 最近一次检索的过程记录（供 UI/统计展示；与 membership/slice 服务同构）
+        self._last_trace: dict | None = None
+
+    def get_last_trace(self) -> dict | None:
+        """获取最近一次检索的过程记录（耗时，供 UI/统计展示）"""
+        return self._last_trace
 
     def retriever_docs(self, query: str) -> list[Document]:
         """执行向量检索，返回 Document 列表"""
@@ -37,6 +44,7 @@ class KnowledgeRagService(BaseRetriever):
 
     def rag_summarize(self, query: str) -> str:
         """执行 RAG 总结"""
+        t0 = time.time()
         context_docs = self.retriever_docs(query)
         context = ""
         counter = 0
@@ -47,7 +55,13 @@ class KnowledgeRagService(BaseRetriever):
                 f"| 参考元数据：{doc.metadata}\n"
             )
 
-        return self._chain.invoke({"input": query, "context": context})
+        result = self._chain.invoke({"input": query, "context": context})
+        self._last_trace = {
+            "query": query,
+            "total_latency": (time.time() - t0) * 1000,  # 毫秒
+            "doc_count": counter,
+        }
+        return result
 
     def retrieve(self, query: str) -> str:
         """实现 BaseRetriever 接口"""
@@ -73,6 +87,7 @@ class KnowledgeRagService(BaseRetriever):
             格式化的参考资料字符串；异常时返回空字符串
         """
         try:
+            t0 = time.time()
             k = k if k is not None else rag_config.knowledge_retrieve_k
             threshold = (relevance_threshold if relevance_threshold is not None
                          else rag_config.knowledge_relevance_threshold)
@@ -96,6 +111,13 @@ class KnowledgeRagService(BaseRetriever):
 
             logger.info(f"【RAG检索】已完成向量检索，候选 {len(docs_with_scores)} 条，"
                         f"阈值 {threshold:.2f} 过滤后 {len(parts)} 条")
+            self._last_trace = {
+                "query": query,
+                "total_latency": (time.time() - t0) * 1000,  # 毫秒
+                "candidate_count": len(docs_with_scores),
+                "doc_count": len(parts),
+                "threshold": threshold,
+            }
             return "\n".join(parts)
         except Exception as e:
             logger.error(f"RAG检索过程发生异常，跳过RAG检索: {str(e)}")

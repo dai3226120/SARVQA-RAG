@@ -103,16 +103,24 @@ class MainAgent:
         self._last_rag_context = rag_context
 
         # ----- 第二步：用 internvl 多模态模型生成最终答案 -----
-        system_text = load_system_prompts()
-        if rag_context:
-            system_text += f"\n\n以下是检索到的相关背景信息：\n{rag_context}"
+        # 视觉轮使用简短直答 system：ReAct 提示词（load_system_prompts）是给 doubao 文本 agent 的，
+        # 原样塞给 InternVL 会诱导 <think>/复述参考资料（实测 42%-54% 答案带 think），
+        # 与 mainagent_tinygptv "视觉轮不使用 ReAct system" 的教训一致。
+        system_text = (
+            "You are an expert in SAR remote sensing image understanding. "
+            "Answer the question directly based on the image, in one concise English sentence. "
+            "Do not show thinking process or cite references."
+        )
 
-        # 追加最终答案的格式要求
-        system_text += "\n\n最终答案用一句话英文说明，不超过150字，不要使用例如或括号。"
+        # 检索背景注入 user 消息末尾（模型对末尾指令遵循度更高），而不是塞进 system
+        if rag_context:
+            query_text = f"{query}\n\n以下是检索到的相关背景信息：\n{rag_context}"
+        else:
+            query_text = query
 
         vision_messages = [
             SystemMessage(content=system_text),
-            HumanMessage(content=multi_modal_content)
+            HumanMessage(content=[{"type": "text", "text": query_text}, *multi_modal_content[1:]])
         ]
 
         try:
